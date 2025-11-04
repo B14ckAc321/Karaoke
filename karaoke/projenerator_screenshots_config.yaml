@@ -1,0 +1,161 @@
+# ┌────────────────────────────────────────────────────────────────────────────┐
+# │                            Screenshots Config                             │
+# │                                                                            │
+# │ This template drives how screenshots are framed, colored, and labeled.    │
+# └────────────────────────────────────────────────────────────────────────────┘
+
+global:
+  # Path to your app’s font file. Can be a ZIP of bitmap glyphs or a TrueType/OTF.
+  # This hasn't been tested and it is recommended not to use this to use the default font.
+  font: "path/to/your/custom_font.zip"
+
+  # Background fill for the entire canvas:
+  background:
+    default:
+      # “gradient” if not gradient, just add a color: #RRGGBB attribute
+      type: gradient
+
+      # Start/end colors for gradients (hex format, RRGGBB or AARRGGBB).
+      start_color: "#FF0000"
+      end_color:   "#0000FF"
+
+      # Gradient direction: one of [leftToRight, topToBottom,
+      # topLeftToBottomRight, bottomLeftToTopRight]. Defaults to leftToRight.
+      direction: leftToRight
+
+  # Padding (in pixels) around the screenshot inside the frame,
+  # before drawing text or borders.
+  # It is recommended not to use this and let the default padding be used.
+  padding: 40
+
+  # Default text settings by language. You can override per-language here.
+  text:
+    default:
+      # Hex color for your overlay text.
+      text_color: "#FFFFFF"
+      # Font size (points or pixels—match your font design).
+      # Common presets: [56, 72, 80, 100, 120, 150]
+      font_size: 120
+
+    # French-specific overrides:
+    fr:
+      text_color: "#FFFFFF"
+      font_size: 56
+
+    # English-specific overrides:
+    en:
+      text_color: "#FF00FF"
+
+  # Default texts for all platforms
+  texts:
+    img_1:
+      en: ""
+      fr: ""
+  # Where to write all generated renders:
+  output_folder: "build/screenshots"
+
+# ────────────────────────────────────────────────────────────────────────────────
+
+# Languages your tool will generate for. “supported” is the full set;
+# “fallback” is used when a translation is missing.
+languages:
+  supported: ["en", "fr", "de"]
+  fallback:  "en"
+
+# ────────────────────────────────────────────────────────────────────────────────
+
+# Platform-specific settings. For each key (ios, android, macos, tablet):
+# - screenshots_dir: where to read raw screenshots per language
+# - frame: optional custom device frame image path
+# - background: override global background
+# - texts: per-image labels, by language
+
+platforms:
+
+  ios:
+    # Screenshots location: use `default` or per-lang subfolders
+    screenshots_dir:
+      default: "screenshots/ios"
+      fr:      "screenshots/ios/fr"
+
+    # You can override the global background here:
+    background:
+      default:
+        type: gradient
+        start_color: "#FF0000"
+        end_color:   "#0000FF"
+        direction:   topLeftToBottomRight
+      fr:
+        # A simple solid fill for French screenshots
+        color: "#FFEEEE"
+
+    # If you want a custom text setting per platform, you can do it here:
+    text:
+      default:
+        text_color: "#000000"
+        font_size: 100
+      fr:
+        text_color: "#00FF00"
+        font_size:  80
+
+    # Text labels for each image (keyed by file basename):
+    texts:
+      img_1:
+        en: "Welcome!"
+        fr: "Bienvenue!"
+        de: "Willkommen!"
+      img_2:
+        en: "Manage your profile"
+        fr: "Gérez votre profil"
+
+  android:
+    # If you have a custom frame asset, point to it here:
+    frame: "path/to/your/custom/frame.png"
+
+    screenshots_dir:
+      default: "screenshots/android"
+      en:      "screenshots/android/en"
+      fr:      "screenshots/android/fr"
+
+    background:
+      default:
+        # Solid color instead of gradient:
+        color: "#AAFFAA"
+
+    texts:
+      img_1:
+        en: "Welcome on Android!"
+        de: "Willkommen!"
+      img_2:
+        en: "Adjust Settings"
+        fr: "Réglez les paramètres"
+
+  macos:
+    screenshots_dir:
+      default: "screenshots/macos"
+      fr:      "screenshots/macos/fr"
+
+    background:
+      default:
+        type: gradient
+        start_color: "#334455"
+        end_color:   "#556677"
+      en:
+        # Override only the solid color for English:
+        color: "#FFFFFF"
+
+    texts:
+      img_1:
+        en: "Welcome to macOS!"
+        fr: "Bienvenue sur macOS!"
+
+  tablet:
+    screenshots_dir:
+      default: "screenshots/tablet"
+      fr:      "screenshots/tablet/fr"
+
+    # No custom background ⇒ uses global.background
+    texts:
+      img_1:
+        en: "Welcome on Tablet!"
+        fr: "Bienvenue sur tablette!"

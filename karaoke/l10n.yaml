@@ -1,0 +1,5 @@
+arb-dir: lib/l10n          # where your ARB files are located
+template-arb-file: app_en.arb  # the default language ARB file
+output-localization-file: app_localizations.dart  # generated Dart file name
+synthetic-package: false   # generate files into source instead of package:flutter_gen
+output-dir: lib/l10n/gen   # (optional) directory for generated localization Dart files
