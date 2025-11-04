@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:karaoke/l10n/gen/app_localizations.dart';
 import 'package:karaoke/src/ui/pages/home/bloc/home_bloc.dart';
+import 'package:karaoke/src/services/backend_service.dart';
+import 'package:karaoke/src/repositories/song_repository.dart';
+import 'package:go_router/go_router.dart';
+import 'package:karaoke/src/navigation/routes.dart';
 
 
 part 'home_view_initial.dart';

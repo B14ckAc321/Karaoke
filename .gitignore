@@ -1,0 +1,22 @@
+# Node
+node_modules/
+*.log
+
+# Docker
+*.env
+
+# Flutter (when added)
+.build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.dart_tool/
+.packages
+pubspec.lock
+build/
+web_build/
+
+# IDE
+.vscode/
+.idea/
+
+

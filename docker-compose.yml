@@ -1,0 +1,29 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: karaoke-backend
+    ports:
+      - "8082:8080"
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/data
+    volumes:
+      - karaoke_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+
+  # Placeholder for Flutter web build output served by nginx
+  # Frontend is built/run locally via Flutter; no container.
+
+  # Optional reverse proxy to expose clean ports, can be added later
+networks:
+  default:
+    driver: bridge
+volumes:
+  karaoke_data:
+
