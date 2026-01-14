@@ -6,6 +6,10 @@ import 'package:karaoke/src/services/app_service.dart';
 import 'package:karaoke/src/ui/pages/home/view/home_view.dart';
 import 'package:karaoke/src/ui/pages/account/view/account_view.dart';
 import 'package:karaoke/src/ui/pages/splash/splash_view.dart';
+import 'package:karaoke/src/ui/pages/tv/tv_view.dart';
+import 'package:karaoke/src/ui/pages/dj/dj_view.dart';
+import 'package:karaoke/src/ui/pages/bar/bar_view.dart';
+import 'package:karaoke/src/ui/pages/settings/settings_view.dart';
 
 // private navigators
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -52,6 +56,22 @@ final class AppRouter {
       GoRoute(
         path: RouteNames.splash,
         builder: (context, state) => const SplashPage(),
+      ),
+      GoRoute(
+        path: RouteNames.tv,
+        builder: (context, state) => const TvPage(),
+      ),
+      GoRoute(
+        path: RouteNames.dj,
+        builder: (context, state) => const DjPage(),
+      ),
+      GoRoute(
+        path: RouteNames.bar,
+        builder: (context, state) => const BarPage(),
+      ),
+      GoRoute(
+        path: RouteNames.settings,
+        builder: (context, state) => const SettingsPage(),
       ),
       // Add other pages here
     ],

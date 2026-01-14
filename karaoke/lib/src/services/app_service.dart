@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:karaoke/src/repositories/example_repository.dart';
 import 'package:karaoke/src/utils/logger.dart';
+import 'package:karaoke/src/services/backend_service.dart';
+import 'package:karaoke/src/services/theme_service.dart';
 
 final class AppService with ChangeNotifier {
   AppService._internal();
@@ -23,6 +25,8 @@ final class AppService with ChangeNotifier {
     // All services or repositories instances in this function will
     await Future.wait([
       ExampleRepository.getInstance().init(),
+      BackendService.getInstance().init(),
+      ThemeService.getInstance().init(),
     ]);
 
 
