@@ -36,6 +36,7 @@ dependencies:
   url_launcher: ^6.3.0
   image_picker: ^1.1.2
   file_picker: ^8.1.4
+  flutter_colorpicker: ^1.0.3
   flutter_localizations:
     sdk: flutter
   cupertino_icons: ^1.0.8
