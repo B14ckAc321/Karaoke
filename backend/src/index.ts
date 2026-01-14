@@ -3,7 +3,10 @@ import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import { Server } from 'socket.io';
-import { getAllSongs, insertSong, deleteSong as dbDeleteSong, updateScore as dbUpdateScore, updateYoutubeUrl, DbSong } from './db';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import { getAllSongs, insertSong, deleteSong as dbDeleteSong, updateScore as dbUpdateScore, updateYoutubeUrl, DbSong, getThemeSetting, setThemeSetting, getAllThemeSettings } from './db';
 import crypto from 'crypto';
 
 type Song = {
@@ -39,6 +42,20 @@ app.use(helmet({
   crossOriginOpenerPolicy: false,
   crossOriginEmbedderPolicy: false,
 }));
+
+// Image upload setup
+const dataDir = process.env.DATA_DIR || '/data';
+const imagesDir = path.join(dataDir, 'images');
+if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, imagesDir),
+  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Serve uploaded images
+app.use('/images', express.static(imagesDir));
 
 const defaultState: AppState = {
   songs: [],
@@ -157,6 +174,47 @@ app.post('/timer/reset', (_req, res) => {
   state.timer.lastTickTs = undefined;
   broadcastState();
   res.json({ ok: true });
+});
+
+// Theme settings
+app.get('/theme', (_req, res) => {
+  res.json(getAllThemeSettings());
+});
+
+app.post('/theme', (req, res) => {
+  const settings = req.body ?? {};
+  for (const [key, value] of Object.entries(settings)) {
+    if (typeof value === 'string') setThemeSetting(key, value);
+  }
+  res.json({ ok: true });
+});
+
+// Image upload
+app.post('/images', upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'no file uploaded' });
+  const host = req.get('host') || 'localhost:8082';
+  const protocol = req.protocol;
+  const imageUrl = `${protocol}://${host}/images/${req.file.filename}`;
+  res.json({ ok: true, url: imageUrl, filename: req.file.filename });
+});
+
+app.get('/images', (_req, res) => {
+  const files = fs.readdirSync(imagesDir).map(f => ({
+    filename: f,
+    url: `/images/${f}`,
+  }));
+  res.json(files);
+});
+
+app.delete('/images/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(imagesDir, filename);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    res.json({ ok: true });
+  } else {
+    res.status(404).json({ error: 'not found' });
+  }
 });
 
 // Socket.IO

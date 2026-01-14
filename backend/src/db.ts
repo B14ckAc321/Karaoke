@@ -28,6 +28,13 @@ db.prepare(`
   )
 `).run();
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS theme_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )
+`).run();
+
 export function getAllSongs(): DbSong[] {
   const rows = db.prepare('SELECT id, title, artist, score, youtube_url as youtubeUrl FROM songs ORDER BY title COLLATE NOCASE').all();
   return rows as DbSong[];
@@ -49,6 +56,22 @@ export function updateScore(id: string, score: number): void {
 
 export function updateYoutubeUrl(id: string, url: string | null): void {
   db.prepare('UPDATE songs SET youtube_url = ? WHERE id = ?').run(url, id);
+}
+
+export function getThemeSetting(key: string): string | null {
+  const row = db.prepare('SELECT value FROM theme_settings WHERE key = ?').get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setThemeSetting(key: string, value: string): void {
+  db.prepare('INSERT OR REPLACE INTO theme_settings (key, value) VALUES (?, ?)').run(key, value);
+}
+
+export function getAllThemeSettings(): Record<string, string> {
+  const rows = db.prepare('SELECT key, value FROM theme_settings').all() as Array<{ key: string; value: string }>;
+  const result: Record<string, string> = {};
+  for (const row of rows) result[row.key] = row.value;
+  return result;
 }
 
 

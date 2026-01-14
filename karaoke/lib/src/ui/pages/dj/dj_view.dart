@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:karaoke/src/navigation/routes.dart';
 import 'package:karaoke/src/repositories/song_repository.dart';
 import 'package:karaoke/src/services/backend_service.dart';
+import 'package:karaoke/src/services/theme_service.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 final class DjPage extends StatefulWidget {
@@ -13,6 +16,7 @@ final class DjPage extends StatefulWidget {
 class _DjPageState extends State<DjPage> {
   final backend = BackendService.getInstance();
   final repo = SongRepository.getInstance();
+  final themeService = ThemeService.getInstance();
 
   final _titleCtrl = TextEditingController();
   final _artistCtrl = TextEditingController();
@@ -22,15 +26,25 @@ class _DjPageState extends State<DjPage> {
   void initState() {
     super.initState();
     backend.addListener(_onUpdate);
+    themeService.addListener(_onUpdate);
   }
 
   @override
   void dispose() {
     backend.removeListener(_onUpdate);
+    themeService.removeListener(_onUpdate);
     super.dispose();
   }
 
   void _onUpdate() => setState(() {});
+
+  Color _parseColor(String hex) {
+    try {
+      return Color(int.parse(hex.replaceFirst('#', '0xFF')));
+    } catch (_) {
+      return const Color(0xFF0b0f1a);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +52,24 @@ class _DjPageState extends State<DjPage> {
     final timer = state?.timer;
     final minutes = timer != null ? (timer.remainingSeconds ~/ 60).toString().padLeft(2, '0') : '--';
     final seconds = timer != null ? (timer.remainingSeconds % 60).toString().padLeft(2, '0') : '--';
+    final bgColor = _parseColor(themeService.backgroundColor);
+    final cardColor = _parseColor(themeService.cardColor);
+    final textColor = _parseColor(themeService.textColor);
+    final accentColor = _parseColor(themeService.accentColor);
     return Scaffold(
-      appBar: AppBar(title: const Text('DJ')),
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        title: Text('DJ', style: TextStyle(fontFamily: themeService.fontFamily)),
+        backgroundColor: cardColor,
+        foregroundColor: textColor,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => context.go(RouteNames.settings),
+            tooltip: 'Settings',
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(children: [
@@ -53,9 +83,9 @@ class _DjPageState extends State<DjPage> {
             width: 360,
             child: Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: const Color(0xFF11182b), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text('$minutes:$seconds', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900)),
+                Text('$minutes:$seconds', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: accentColor, fontFamily: themeService.fontFamily)),
                 const SizedBox(height: 16),
                 TextField(controller: _durationCtrl, decoration: const InputDecoration(labelText: 'Duration (sec)'), keyboardType: TextInputType.number),
                 const SizedBox(height: 12),
@@ -73,11 +103,13 @@ class _DjPageState extends State<DjPage> {
   }
 
   Widget _addSongForm() {
+    final cardColor = _parseColor(themeService.cardColor);
+    final textColor = _parseColor(themeService.textColor);
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFF11182b), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Add Song', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text('Add Song', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor, fontFamily: themeService.fontFamily)),
         const SizedBox(height: 8),
         Row(children: [
           Expanded(child: TextField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Song name'))),
@@ -98,13 +130,17 @@ class _DjPageState extends State<DjPage> {
 
   Widget _songsList() {
     final state = backend.state;
+    final cardColor = _parseColor(themeService.cardColor);
+    final textColor = _parseColor(themeService.textColor);
+    final accentColor = _parseColor(themeService.accentColor);
+    final bgColor = _parseColor(themeService.backgroundColor);
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF11182b), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
       child: state == null
           ? const Center(child: CircularProgressIndicator())
           : ListView.separated(
               itemCount: state.songs.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.white24),
+              separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withOpacity(0.3)),
               itemBuilder: (context, i) {
                 final s = state.songs[i];
                 return Padding(
@@ -112,10 +148,14 @@ class _DjPageState extends State<DjPage> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(s.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-                        if (s.artist != null) Text(s.artist!, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+                        Text(s.title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: textColor, fontFamily: themeService.fontFamily)),
+                        if (s.artist != null) Text(s.artist!, style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7), fontFamily: themeService.fontFamily)),
                       ])),
-                      Text('${s.score}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(color: accentColor, borderRadius: BorderRadius.circular(12)),
+                        child: Text('${s.score}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: bgColor, fontFamily: themeService.fontFamily)),
+                      ),
                     ]),
                     const SizedBox(height: 8),
                     Wrap(spacing: 12, runSpacing: 12, children: [

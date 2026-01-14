@@ -6,4 +6,5 @@ abstract final class RouteNames {
   static const tv = '/tv';
   static const dj = '/dj';
   static const bar = '/bar';
+  static const settings = '/settings';
 }
