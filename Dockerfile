@@ -1,0 +1,133 @@
+# Multi-stage build for combined backend + frontend
+
+# ============================================
+# Stage 1: Build Backend
+# ============================================
+FROM node:20-alpine AS backend-deps
+WORKDIR /app/backend
+RUN apk add --no-cache python3 make g++
+COPY backend/package.json backend/package-lock.json* ./
+RUN npm install --no-audit --no-fund
+
+FROM node:20-alpine AS backend-build
+WORKDIR /app/backend
+COPY --from=backend-deps /app/backend/node_modules ./node_modules
+COPY backend/tsconfig.json ./
+COPY backend/src ./src
+RUN npx tsc -p tsconfig.json
+
+# ============================================
+# Stage 2: Build Frontend
+# ============================================
+FROM instrumentisto/flutter:latest AS frontend-build
+WORKDIR /app/frontend
+
+# Copy dependency files
+COPY karaoke/pubspec.yaml karaoke/pubspec.lock* ./
+COPY karaoke/l10n.yaml ./
+
+# Copy lib directory (needed for l10n generation)
+COPY karaoke/lib ./lib
+
+# Create Flutter project and get dependencies
+RUN flutter create . --platforms web
+RUN flutter pub get
+
+# Copy web and assets
+COPY karaoke/web ./web
+RUN mkdir -p assets/fonts assets/images
+COPY karaoke/assets ./assets
+
+# Build Flutter web app
+RUN flutter build web --release --no-tree-shake-icons --pwa-strategy=none
+
+# ============================================
+# Stage 3: Final Runtime Image
+# ============================================
+FROM nginx:1.27-alpine
+
+# Install Node.js and dependencies for backend
+RUN apk add --no-cache nodejs npm python3 make g++ libstdc++ wget dumb-init gettext
+
+# Copy backend files
+WORKDIR /app/backend
+COPY --from=backend-deps /app/backend/node_modules ./node_modules
+COPY --from=backend-build /app/backend/dist ./dist
+COPY backend/package.json ./
+
+# Copy frontend files
+COPY --from=frontend-build /app/frontend/build/web /usr/share/nginx/html
+
+# Create nginx config template (will be processed at runtime with PORT env var)
+RUN echo 'server { \
+    listen $PORT; \
+    server_name _; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    \
+    # Proxy Socket.IO requests first \
+    location /socket.io { \
+        proxy_pass http://localhost:8080; \
+        proxy_http_version 1.1; \
+        proxy_set_header Upgrade $http_upgrade; \
+        proxy_set_header Connection "upgrade"; \
+        proxy_set_header Host $host; \
+        proxy_set_header X-Real-IP $remote_addr; \
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+        proxy_set_header X-Forwarded-Proto $scheme; \
+    } \
+    \
+    # Proxy backend API routes (songs, state, health, theme, upload, images) \
+    location ~ ^/(songs|state|health|theme|upload|images) { \
+        proxy_pass http://localhost:8080; \
+        proxy_http_version 1.1; \
+        proxy_set_header Host $host; \
+        proxy_set_header X-Real-IP $remote_addr; \
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+        proxy_set_header X-Forwarded-Proto $scheme; \
+    } \
+    \
+    # Cache static assets \
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ { \
+        expires 1y; \
+        add_header Cache-Control "public, immutable"; \
+    } \
+    \
+    # SPA routing - serve index.html for all other routes \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf.template
+
+# Create startup script
+RUN echo '#!/bin/sh \
+set -e \
+\
+# Use PORT env var if set (Railway), otherwise default to 80 \
+export PORT=${PORT:-80} \
+\
+# Generate nginx config with PORT env var \
+envsubst '\''$PORT'\'' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf \
+\
+# Start backend in background \
+cd /app/backend \
+node dist/index.js & \
+BACKEND_PID=$! \
+\
+# Wait a moment for backend to start \
+sleep 2 \
+\
+# Start nginx in foreground \
+exec nginx -g "daemon off;" \
+' > /start.sh && chmod +x /start.sh
+
+# Persistent data directory
+VOLUME ["/data"]
+ENV NODE_ENV=production
+ENV DATA_DIR=/data
+
+EXPOSE 80
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["/start.sh"]

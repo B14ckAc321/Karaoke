@@ -50,8 +50,13 @@ class BackendService with ChangeNotifier {
   AppData? get state => _state;
 
   Future<void> init() async {
+    // Use relative URLs when deployed (same origin), explicit port for local dev
+    // Check if we're in a browser and can detect the protocol
     final host = getBackendHost();
-    baseUrl = 'http://$host:8082';
+    // For Railway/production: use relative URLs (same origin)
+    // For local dev: use explicit port 8082
+    final isLocalDev = host == 'localhost' || host == '127.0.0.1';
+    baseUrl = isLocalDev ? 'http://$host:8082' : '';
     _connectSocket();
     // Warm-up: fetch state once via REST in case socket is delayed
     try {
