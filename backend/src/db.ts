@@ -18,7 +18,7 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, 'karaoke.db');
 console.log(`Database path: ${dbPath}`);
 
-let db: Database;
+let db: InstanceType<typeof Database>;
 try {
   const database = new Database(dbPath);
   console.log('Database initialized successfully');
