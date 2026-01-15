@@ -71,21 +71,28 @@ class BackendService with ChangeNotifier {
     try {
       _updateConnectionStatus('Testing HTTP connection...', false);
       final stateUrl = baseUrl.isEmpty ? '/state' : '$baseUrl/state';
+      debugPrint('Fetching initial state from: $stateUrl');
       final resp = await http.get(Uri.parse(stateUrl)).timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 10),
         onTimeout: () => throw TimeoutException('Connection timeout'),
       );
+      debugPrint('State response: ${resp.statusCode}');
       if (resp.statusCode == 200) {
         final json = jsonDecode(resp.body) as Map<String, dynamic>;
+        debugPrint('State received: ${json['songs']?.length ?? 0} songs');
         _applyState(json);
         _updateConnectionStatus('HTTP connection OK, waiting for WebSocket...', false);
       } else {
+        debugPrint('HTTP error: ${resp.statusCode} - ${resp.body}');
         _updateConnectionStatus('HTTP error: ${resp.statusCode}', false);
+        // Set empty state so UI doesn't show loading forever
+        _applyState({'songs': <dynamic>[], 'timer': {'durationSeconds': 60, 'remainingSeconds': 60, 'isRunning': false}});
       }
     } catch (e) {
       debugPrint('Failed to fetch initial state: $e');
       _updateConnectionStatus('HTTP connection failed: $e', false);
-      // Don't throw - let socket handle it
+      // Set empty state so UI doesn't show loading forever
+      _applyState({'songs': <dynamic>[], 'timer': {'durationSeconds': 60, 'remainingSeconds': 60, 'isRunning': false}});
     }
   }
 
@@ -129,10 +136,26 @@ class BackendService with ChangeNotifier {
   }
 
   void _applyState(Map<String, dynamic> json) {
-    final songs = ((json['songs'] as List).cast<Map<String, dynamic>>()).map(SongModel.fromJson).toList();
-    final timer = TimerModel.fromJson(json['timer'] as Map<String, dynamic>);
-    _state = AppData(songs: songs, timer: timer);
-    notifyListeners();
+    try {
+      final songsList = json['songs'];
+      final songs = (songsList is List ? songsList : <dynamic>[])
+          .cast<Map<String, dynamic>>()
+          .map(SongModel.fromJson)
+          .toList();
+      final timer = TimerModel.fromJson(json['timer'] as Map<String, dynamic>);
+      _state = AppData(songs: songs, timer: timer);
+      debugPrint('State applied: ${songs.length} songs');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error applying state: $e');
+      debugPrint('State JSON: $json');
+      // Set empty state on error so UI doesn't show loading forever
+      _state = AppData(
+        songs: [],
+        timer: TimerModel(durationSeconds: 60, remainingSeconds: 60, isRunning: false),
+      );
+      notifyListeners();
+    }
   }
 
   // Commands
