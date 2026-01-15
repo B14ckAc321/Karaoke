@@ -33,22 +33,33 @@ class ThemeService with ChangeNotifier {
   Future<void> init() async {
     // Use same URL logic as BackendService
     final host = getBackendHost();
+    debugPrint('ThemeService init - host: $host, kIsWeb: $kIsWeb');
     final isLocalDev = host == 'localhost' || host == '127.0.0.1';
     
     if (isLocalDev) {
       baseUrl = 'http://$host:8082';
+      debugPrint('ThemeService: Using local dev URL');
     } else {
       // In production, use HTTPS (same as BackendService)
       // Use the same origin as the current page to avoid mixed content errors
       if (kIsWeb) {
         // Get protocol and host from current page URL
         baseUrl = _getCurrentOrigin();
+        debugPrint('ThemeService: Using web origin (HTTPS)');
       } else {
         baseUrl = 'https://$host';
+        debugPrint('ThemeService: Using HTTPS for non-web platform');
       }
     }
     
     debugPrint('ThemeService baseUrl: $baseUrl');
+    
+    // Verify baseUrl doesn't contain http:// in production
+    if (!isLocalDev && baseUrl.startsWith('http://')) {
+      debugPrint('ERROR: ThemeService baseUrl is HTTP in production! Fixing...');
+      baseUrl = baseUrl.replaceFirst('http://', 'https://').replaceAll(':8082', '');
+      debugPrint('ThemeService baseUrl (fixed): $baseUrl');
+    }
     
     // Load settings first, then connect socket
     await loadSettings();
@@ -59,7 +70,9 @@ class ThemeService with ChangeNotifier {
     // In production, always use HTTPS (Railway provides HTTPS)
     // Get the hostname and construct the URL with HTTPS
     final host = getBackendHost();
-    return 'https://$host';
+    final url = 'https://$host';
+    debugPrint('ThemeService _getCurrentOrigin: $url');
+    return url;
   }
 
   void _connectSocket() {
@@ -120,6 +133,16 @@ class ThemeService with ChangeNotifier {
 
   Future<void> loadSettings() async {
     try {
+      // Safety check: ensure baseUrl is HTTPS in production
+      String url = baseUrl;
+      if (!url.contains('localhost') && !url.contains('127.0.0.1')) {
+        // Production - force HTTPS and remove port
+        url = url.replaceFirst('http://', 'https://').replaceAll(':8082', '');
+        if (url != baseUrl) {
+          debugPrint('ThemeService: Fixed baseUrl from $baseUrl to $url');
+          baseUrl = url;
+        }
+      }
       debugPrint('Loading theme settings from: $baseUrl/theme');
       final resp = await http.get(Uri.parse('$baseUrl/theme')).timeout(
         const Duration(seconds: 5),
@@ -151,6 +174,16 @@ class ThemeService with ChangeNotifier {
     debugPrint('Saving theme settings: ${newSettings.keys.join(', ')}');
     debugPrint('Full settings to save: ${updatedSettings.length} total');
     try {
+      // Safety check: ensure baseUrl is HTTPS in production
+      String url = baseUrl;
+      if (!url.contains('localhost') && !url.contains('127.0.0.1')) {
+        // Production - force HTTPS and remove port
+        url = url.replaceFirst('http://', 'https://').replaceAll(':8082', '');
+        if (url != baseUrl) {
+          debugPrint('ThemeService: Fixed baseUrl from $baseUrl to $url');
+          baseUrl = url;
+        }
+      }
       // Send to server
       final resp = await http.post(
         Uri.parse('$baseUrl/theme'),
