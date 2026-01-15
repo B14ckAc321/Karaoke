@@ -104,14 +104,21 @@ class ThemeService with ChangeNotifier {
       );
       if (resp.statusCode == 200) {
         final settingsMap = jsonDecode(resp.body) as Map;
-        _settings = Map<String, String>.from(settingsMap);
-        debugPrint('Theme settings loaded: ${_settings.length} settings');
+        final newSettings = Map<String, String>.from(settingsMap);
+        debugPrint('Theme settings loaded: ${newSettings.length} settings');
+        if (newSettings.isNotEmpty) {
+          _settings = newSettings;
+          debugPrint('Applied theme settings: ${_settings.keys.join(', ')}');
+        } else {
+          debugPrint('No theme settings found in database (using defaults)');
+        }
         notifyListeners();
       } else {
-        debugPrint('Failed to load theme settings: ${resp.statusCode}');
+        debugPrint('Failed to load theme settings: ${resp.statusCode} - ${resp.body}');
       }
     } catch (e) {
       debugPrint('Error loading theme settings: $e');
+      // Don't fail silently - at least log the error
     }
   }
 
@@ -119,6 +126,7 @@ class ThemeService with ChangeNotifier {
     // Merge new settings with existing
     final updatedSettings = {..._settings, ...newSettings};
     debugPrint('Saving theme settings: ${newSettings.keys.join(', ')}');
+    debugPrint('Full settings to save: ${updatedSettings.length} total');
     try {
       // Send to server
       final resp = await http.post(
@@ -129,16 +137,19 @@ class ThemeService with ChangeNotifier {
         const Duration(seconds: 5),
         onTimeout: () => throw TimeoutException('Theme save timeout'),
       );
+      debugPrint('Save response: ${resp.statusCode} - ${resp.body}');
       if (resp.statusCode == 200) {
-        debugPrint('Theme settings saved successfully');
+        debugPrint('Theme settings saved successfully to server');
         // Update local settings immediately
         _settings = updatedSettings;
         notifyListeners();
+        debugPrint('Local settings updated, notifying listeners');
         // Wait a bit for Socket.IO broadcast, then reload to ensure consistency
-        await Future<void>.delayed(const Duration(milliseconds: 200));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        debugPrint('Reloading settings from server to verify...');
         await loadSettings();
       } else {
-        debugPrint('Failed to save theme settings: ${resp.statusCode}');
+        debugPrint('Failed to save theme settings: ${resp.statusCode} - ${resp.body}');
         // If save fails, still update locally
         _settings = updatedSettings;
         notifyListeners();

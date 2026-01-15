@@ -87,7 +87,10 @@ function broadcastState() {
 }
 
 function broadcastThemeUpdate() {
-  io.emit('theme:update', getAllThemeSettings());
+  const settings = getAllThemeSettings();
+  console.log(`Broadcasting theme update to ${io.sockets.sockets.size} connected clients`);
+  console.log(`Theme settings: ${Object.keys(settings).length} keys`);
+  io.emit('theme:update', settings);
 }
 
 function recalcRemaining() {
@@ -238,9 +241,14 @@ app.get('/theme', (_req, res) => {
 
 app.post('/theme', (req, res) => {
   const settings = req.body ?? {};
+  console.log(`POST /theme - saving ${Object.keys(settings).length} settings`);
   for (const [key, value] of Object.entries(settings)) {
-    if (typeof value === 'string') setThemeSetting(key, value);
+    if (typeof value === 'string') {
+      setThemeSetting(key, value);
+      console.log(`  - ${key}: ${value}`);
+    }
   }
+  console.log('Broadcasting theme update...');
   broadcastThemeUpdate();
   res.json({ ok: true });
 });
@@ -275,10 +283,12 @@ app.delete('/images/:filename', (req, res) => {
 
 // Socket.IO
 io.on('connection', (socket) => {
-  console.log('Socket.IO client connected');
+  console.log(`Socket.IO client connected (total: ${io.sockets.sockets.size})`);
   // Send initial state to newly connected client
   recalcRemaining();
   socket.emit('state:update', state);
+  // Also send theme settings to newly connected client
+  socket.emit('theme:update', getAllThemeSettings());
   recalcRemaining();
   socket.emit('state:update', state);
 
