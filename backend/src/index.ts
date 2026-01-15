@@ -50,7 +50,23 @@ if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, imagesDir),
-  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
+  filename: (req, file, cb) => {
+    // Use fixed filenames based on the image type to replace existing images
+    // This saves storage space by replacing instead of accumulating
+    const imageType = (req.body?.type || req.query?.type || 'background') as string; // 'background' or 'logo'
+    const filename = imageType === 'logo' ? 'logo.jpg' : 'background.jpg';
+    // Delete old file if it exists (to save storage)
+    const filePath = path.join(imagesDir, filename);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+        console.log(`Deleted old ${filename} before upload`);
+      } catch (err) {
+        console.error(`Error deleting old ${filename}:`, err);
+      }
+    }
+    cb(null, filename);
+  },
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -63,11 +79,34 @@ const defaultState: AppState = {
 };
 
 let state: AppState = structuredClone(defaultState);
-// initialize songs from DB
-state.songs = getAllSongs().map((s: DbSong) => ({ id: s.id, title: s.title, artist: s.artist ?? undefined, score: s.score, youtubeUrl: s.youtubeUrl ?? undefined }));
+// initialize songs from DB (already sorted by score DESC from DB)
+try {
+  const dbSongs = getAllSongs();
+  console.log(`Loaded ${dbSongs.length} songs from database`);
+  state.songs = dbSongs.map((s: DbSong) => ({ id: s.id, title: s.title, artist: s.artist ?? undefined, score: s.score, youtubeUrl: s.youtubeUrl ?? undefined }));
+} catch (error) {
+  console.error('Error loading songs from database:', error);
+  state.songs = [];
+}
+
+function sortSongsByScore() {
+  state.songs.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+  });
+}
 
 function broadcastState() {
+  sortSongsByScore();
+  console.log(`Broadcasting state update: ${state.songs.length} songs, ${io.sockets.sockets.size} connected clients`);
   io.emit('state:update', state);
+}
+
+function broadcastThemeUpdate() {
+  const settings = getAllThemeSettings();
+  console.log(`Broadcasting theme update to ${io.sockets.sockets.size} connected clients`);
+  console.log(`Theme settings: ${Object.keys(settings).length} keys`);
+  io.emit('theme:update', settings);
 }
 
 function recalcRemaining() {
@@ -85,10 +124,45 @@ function recalcRemaining() {
 }
 
 // REST API
-app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/health', (_req, res) => {
+  const dataDir = process.env.DATA_DIR || '/data';
+  const dbPath = path.join(dataDir, 'karaoke.db');
+  const volumeMounted = fs.existsSync(dataDir);
+  const dbExists = fs.existsSync(dbPath);
+  let dbSize = 0;
+  if (dbExists) {
+    try {
+      dbSize = fs.statSync(dbPath).size;
+    } catch (_) {}
+  }
+  
+  res.json({
+    ok: true,
+    volume: {
+      dataDir,
+      mounted: volumeMounted,
+      writable: (() => {
+        try {
+          const testFile = path.join(dataDir, '.test');
+          fs.writeFileSync(testFile, 'test');
+          fs.unlinkSync(testFile);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      })(),
+    },
+    database: {
+      path: dbPath,
+      exists: dbExists,
+      size: dbSize,
+    },
+  });
+});
 
 app.get('/state', (_req, res) => {
   recalcRemaining();
+  console.log(`GET /state - returning ${state.songs.length} songs`);
   res.json(state);
 });
 
@@ -178,47 +252,106 @@ app.post('/timer/reset', (_req, res) => {
 
 // Theme settings
 app.get('/theme', (_req, res) => {
-  res.json(getAllThemeSettings());
+  const settings = getAllThemeSettings();
+  console.log(`GET /theme - returning ${Object.keys(settings).length} theme settings`);
+  res.json(settings);
 });
 
 app.post('/theme', (req, res) => {
   const settings = req.body ?? {};
+  console.log(`POST /theme - saving ${Object.keys(settings).length} settings`);
+  let savedCount = 0;
   for (const [key, value] of Object.entries(settings)) {
-    if (typeof value === 'string') setThemeSetting(key, value);
+    if (typeof value === 'string') {
+      setThemeSetting(key, value);
+      savedCount++;
+      console.log(`  - ${key}: ${value}`);
+    }
   }
-  res.json({ ok: true });
+  console.log(`Saved ${savedCount} theme settings to database`);
+  
+  // Verify settings were saved
+  const allSettings = getAllThemeSettings();
+  console.log(`Database now contains ${Object.keys(allSettings).length} theme settings`);
+  
+  console.log('Broadcasting theme update...');
+  broadcastThemeUpdate();
+  res.json({ ok: true, saved: savedCount, total: Object.keys(allSettings).length });
 });
 
-// Image upload
-app.post('/images', upload.single('image'), (req, res) => {
+// Image upload - stores images as base64 in database
+app.post('/upload/image', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'no file uploaded' });
-  const host = req.get('host') || 'localhost:8082';
-  const protocol = req.protocol;
-  const imageUrl = `${protocol}://${host}/images/${req.file.filename}`;
-  res.json({ ok: true, url: imageUrl, filename: req.file.filename });
-});
-
-app.get('/images', (_req, res) => {
-  const files = fs.readdirSync(imagesDir).map(f => ({
-    filename: f,
-    url: `/images/${f}`,
-  }));
-  res.json(files);
-});
-
-app.delete('/images/:filename', (req, res) => {
-  const { filename } = req.params;
-  const filePath = path.join(imagesDir, filename);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    res.json({ ok: true });
-  } else {
-    res.status(404).json({ error: 'not found' });
+  const imageType = req.body?.type || req.query?.type || 'background'; // 'background' or 'logo'
+  const settingKey = imageType === 'logo' ? 'logoImageUrl' : 'backgroundImageUrl';
+  
+  try {
+    // Read the uploaded file and convert to base64
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = req.file.mimetype || 'image/jpeg';
+    const dataUri = `data:${mimeType};base64,${base64Image}`;
+    
+    // Store in database (replaces existing image)
+    setThemeSetting(settingKey, dataUri);
+    console.log(`Image uploaded and stored in database: ${settingKey} (${imageBuffer.length} bytes, base64: ${base64Image.length} chars)`);
+    
+    // Delete the temporary file
+    fs.unlinkSync(req.file.path);
+    
+    // Broadcast theme update so all clients get the new image
+    broadcastThemeUpdate();
+    
+    // Return the data URI (frontend can use this directly)
+    res.json({ ok: true, url: dataUri, key: settingKey });
+  } catch (err) {
+    console.error('Error processing image upload:', err);
+    // Clean up temp file if it exists
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    res.status(500).json({ error: 'failed to process image' });
   }
+});
+
+// Get image from database (serves base64 data URI as image)
+// This endpoint is optional since frontend can use data URIs directly
+app.get('/images/:key', (req, res) => {
+  const { key } = req.params;
+  const settingKey = key === 'logo' ? 'logoImageUrl' : 'backgroundImageUrl';
+  const dataUri = getThemeSetting(settingKey);
+  
+  if (!dataUri || !dataUri.startsWith('data:')) {
+    return res.status(404).json({ error: 'image not found' });
+  }
+  
+  // Extract mime type and base64 data from data URI
+  const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    return res.status(500).json({ error: 'invalid image format' });
+  }
+  
+  const mimeType = match[1];
+  const base64Data = match[2];
+  const imageBuffer = Buffer.from(base64Data, 'base64');
+  
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+  res.send(imageBuffer);
 });
 
 // Socket.IO
 io.on('connection', (socket) => {
+  console.log(`Socket.IO client connected (total: ${io.sockets.sockets.size})`);
+  // Send initial state to newly connected client
+  recalcRemaining();
+  socket.emit('state:update', state);
+  // Also send theme settings to newly connected client
+  socket.emit('theme:update', getAllThemeSettings());
   recalcRemaining();
   socket.emit('state:update', state);
 
@@ -252,9 +385,12 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT ? Number(process.env.PORT) : 8080;
-server.listen(PORT, () => {
-  console.log(`karaoke backend listening on :${PORT}`);
+// Backend always listens on 3001 internally (nginx proxies to it)
+// Railway's PORT env var is for nginx, not the backend
+// Using 3001 to avoid conflicts with Railway's PORT (which might be 8080)
+const BACKEND_PORT = 3001;
+server.listen(BACKEND_PORT, '127.0.0.1', () => {
+  console.log(`karaoke backend listening on 127.0.0.1:${BACKEND_PORT}`);
 });
 
 // Timer tick to keep clients in sync even if no REST calls happen

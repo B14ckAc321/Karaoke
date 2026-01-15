@@ -22,6 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Color _cardColor = const Color(0xFF11182b);
   Color _textColor = Colors.white;
   Color _accentColor = Colors.yellow;
+  Color _buttonColor = Colors.blue;
   String _selectedFont = 'Roboto';
 
   @override
@@ -48,6 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _cardColor = _parseColor(themeService.cardColor);
     _textColor = _parseColor(themeService.textColor);
     _accentColor = _parseColor(themeService.accentColor);
+    _buttonColor = _parseColor(themeService.buttonColor);
     _selectedFont = themeService.fontFamily;
     _titleSizeCtrl.text = themeService.titleFontSize.toInt().toString();
     _scoreSizeCtrl.text = themeService.scoreFontSize.toInt().toString();
@@ -59,10 +61,24 @@ class _SettingsPageState extends State<SettingsPage> {
     if (result?.files.single.bytes != null) {
       final bytes = result!.files.single.bytes!;
       final filename = result.files.single.name;
-      final url = await themeService.uploadImage(bytes, filename);
+      // Determine image type from key
+      final imageType = key == 'logoImageUrl' ? 'logo' : 'background';
+      final url = await themeService.uploadImage(bytes, filename, type: imageType);
       if (url != null) {
-        await themeService.saveSettings({key: url});
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image uploaded!')));
+        // Save with the correct key name (backgroundImageUrl or logoImageUrl)
+        final settingsMap = <String, String>{key: url};
+        await themeService.saveSettings(settingsMap);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${imageType == 'logo' ? 'Logo' : 'Background'} image uploaded and replaced!'))
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to upload image'))
+          );
+        }
       }
     }
   }
@@ -113,6 +129,7 @@ class _SettingsPageState extends State<SettingsPage> {
       'cardColor': _colorToHex(_cardColor),
       'textColor': _colorToHex(_textColor),
       'accentColor': _colorToHex(_accentColor),
+      'buttonColor': _colorToHex(_buttonColor),
       'fontFamily': _selectedFont,
       'titleFontSize': _titleSizeCtrl.text,
       'scoreFontSize': _scoreSizeCtrl.text,
@@ -135,6 +152,7 @@ class _SettingsPageState extends State<SettingsPage> {
             _colorPickerField('Card Color', _cardColor, (color) => setState(() => _cardColor = color)),
             _colorPickerField('Text Color', _textColor, (color) => setState(() => _textColor = color)),
             _colorPickerField('Accent Color', _accentColor, (color) => setState(() => _accentColor = color)),
+            _colorPickerField('Button Color', _buttonColor, (color) => setState(() => _buttonColor = color)),
           ]),
           const SizedBox(height: 16),
           _section('Fonts', [
@@ -148,14 +166,6 @@ class _SettingsPageState extends State<SettingsPage> {
           _section('Images', [
             ElevatedButton(onPressed: () => _uploadImage('backgroundImageUrl'), child: const Text('Upload Background Image')),
             ElevatedButton(onPressed: () => _uploadImage('logoImageUrl'), child: const Text('Upload Logo Image')),
-            if (themeService.backgroundImageUrl != null) ...[
-              const SizedBox(height: 8),
-              Text('Background: ${themeService.backgroundImageUrl}'),
-            ],
-            if (themeService.logoImageUrl != null) ...[
-              const SizedBox(height: 8),
-              Text('Logo: ${themeService.logoImageUrl}'),
-            ],
           ]),
           const SizedBox(height: 24),
           ElevatedButton(onPressed: _saveSettings, child: const Text('Save All Settings')),

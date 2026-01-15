@@ -16,6 +16,7 @@ final class SongRepository {
 
   void updateScore(String id, {int? delta, int? set}) => _backend.updateScore(id, delta: delta, set: set);
   void controlTimer(String action, {int? durationSeconds}) => _backend.controlTimer(action, durationSeconds: durationSeconds);
+  Future<void> deleteSong(String id) => _backend.deleteSong(id);
 }
 
 

@@ -11,12 +11,54 @@ export type DbSong = {
 };
 
 const dataDir = process.env.DATA_DIR || '/data';
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+console.log(`Using data directory: ${dataDir}`);
+console.log(`DATA_DIR environment variable: ${process.env.DATA_DIR || 'not set (using default /data)'}`);
+
+if (!fs.existsSync(dataDir)) {
+  console.log(`Creating data directory: ${dataDir}`);
+  fs.mkdirSync(dataDir, { recursive: true });
+} else {
+  console.log(`Data directory already exists: ${dataDir}`);
+}
+
+// Check if directory is writable
+try {
+  const testFile = path.join(dataDir, '.volume-test');
+  fs.writeFileSync(testFile, 'test');
+  fs.unlinkSync(testFile);
+  console.log(`✓ Data directory is writable: ${dataDir}`);
+} catch (error) {
+  console.error(`✗ Data directory is NOT writable: ${dataDir}`, error);
+  console.error('WARNING: Volume may not be mounted correctly!');
+}
+
 const dbPath = path.join(dataDir, 'karaoke.db');
+console.log(`Database path: ${dbPath}`);
 
-export const db = new Database(dbPath);
+// Check if database file exists (indicates persistence)
+if (fs.existsSync(dbPath)) {
+  const stats = fs.statSync(dbPath);
+  console.log(`Database file exists (${stats.size} bytes, modified: ${stats.mtime})`);
+} else {
+  console.log('Database file does not exist yet (will be created)');
+}
 
-db.pragma('journal_mode = WAL');
+let db: InstanceType<typeof Database>;
+try {
+  const database = new Database(dbPath);
+  console.log('Database initialized successfully');
+  
+  // Set WAL mode for better concurrency
+  database.pragma('journal_mode = WAL');
+  console.log('Database is writable');
+  db = database;
+} catch (error) {
+  console.error('Failed to initialize database:', error);
+  console.error('Make sure /data volume is mounted in Railway settings!');
+  throw error;
+}
+
+export { db };
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS songs (
@@ -36,7 +78,7 @@ db.prepare(`
 `).run();
 
 export function getAllSongs(): DbSong[] {
-  const rows = db.prepare('SELECT id, title, artist, score, youtube_url as youtubeUrl FROM songs ORDER BY title COLLATE NOCASE').all();
+  const rows = db.prepare('SELECT id, title, artist, score, youtube_url as youtubeUrl FROM songs ORDER BY score DESC, title COLLATE NOCASE').all();
   return rows as DbSong[];
 }
 

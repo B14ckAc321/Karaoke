@@ -42,6 +42,17 @@ class _BarPageState extends State<BarPage> {
     }
   }
 
+  // Calculate if a color is dark (returns true) or light (returns false)
+  bool _isDarkColor(Color color) {
+    final luminance = color.computeLuminance();
+    return luminance < 0.5;
+  }
+
+  // Get appropriate text color for a background color
+  Color _getTextColorForBackground(Color backgroundColor) {
+    return _isDarkColor(backgroundColor) ? Colors.white : Colors.black;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = backend.state;
@@ -49,6 +60,9 @@ class _BarPageState extends State<BarPage> {
     final cardColor = _parseColor(themeService.cardColor);
     final textColor = _parseColor(themeService.textColor);
     final accentColor = _parseColor(themeService.accentColor);
+    final buttonColor = _parseColor(themeService.buttonColor);
+    final primaryColor = _parseColor(themeService.primaryColor);
+    final secondaryColor = _parseColor(themeService.secondaryColor);
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -70,12 +84,19 @@ class _BarPageState extends State<BarPage> {
           const SizedBox(height: 12),
           Expanded(
             child: Container(
-              decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: primaryColor.withValues(alpha: 0.3), width: 2),
+                boxShadow: [
+                  BoxShadow(color: secondaryColor.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1),
+                ],
+              ),
               child: state == null
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.separated(
                       itemCount: state.songs.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withOpacity(0.3)),
+                      separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
                       itemBuilder: (context, i) {
                         final s = state.songs[i];
                         return Padding(
@@ -84,7 +105,7 @@ class _BarPageState extends State<BarPage> {
                             Row(children: [
                               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                 Text(s.title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: textColor, fontFamily: themeService.fontFamily)),
-                                if (s.artist != null) Text(s.artist!, style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7), fontFamily: themeService.fontFamily)),
+                                if (s.artist != null) Text(s.artist!, style: TextStyle(fontSize: 14, color: textColor.withValues(alpha: 0.7), fontFamily: themeService.fontFamily)),
                               ])),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -94,11 +115,46 @@ class _BarPageState extends State<BarPage> {
                             ]),
                             const SizedBox(height: 8),
                             Wrap(spacing: 12, runSpacing: 12, children: [
-                              ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: -5), child: const Text('-5')),
-                              ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: -1), child: const Text('-1')),
-                              ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: 1), child: const Text('+1')),
-                              ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: 5), child: const Text('+5')),
-                              ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: 10), child: const Text('+10')),
+                              ElevatedButton(
+                                onPressed: () => repo.updateScore(s.id, delta: -5),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: buttonColor,
+                                  foregroundColor: _getTextColorForBackground(buttonColor),
+                                ),
+                                child: const Text('-5'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => repo.updateScore(s.id, delta: -1),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: buttonColor,
+                                  foregroundColor: _getTextColorForBackground(buttonColor),
+                                ),
+                                child: const Text('-1'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => repo.updateScore(s.id, delta: 1),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: buttonColor,
+                                  foregroundColor: _getTextColorForBackground(buttonColor),
+                                ),
+                                child: const Text('+1'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => repo.updateScore(s.id, delta: 5),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: buttonColor,
+                                  foregroundColor: _getTextColorForBackground(buttonColor),
+                                ),
+                                child: const Text('+5'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => repo.updateScore(s.id, delta: 10),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: buttonColor,
+                                  foregroundColor: _getTextColorForBackground(buttonColor),
+                                ),
+                                child: const Text('+10'),
+                              ),
                             ]),
                           ]),
                         );
@@ -117,7 +173,18 @@ class _BarPageState extends State<BarPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
-        Expanded(child: TextField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Song name'))),
+        Expanded(
+          child: TextField(
+            controller: _titleCtrl,
+            style: TextStyle(color: _parseColor(themeService.textColor), fontFamily: themeService.fontFamily),
+            decoration: InputDecoration(
+              labelText: 'Song name',
+              labelStyle: TextStyle(color: _parseColor(themeService.textColor).withValues(alpha: 0.7)),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.textColor).withValues(alpha: 0.5))),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.buttonColor))),
+            ),
+          ),
+        ),
         const SizedBox(width: 8),
         ElevatedButton(
           onPressed: () async {
@@ -126,6 +193,10 @@ class _BarPageState extends State<BarPage> {
             await repo.addSong(title: title);
             _titleCtrl.clear();
           },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _parseColor(themeService.buttonColor),
+            foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+          ),
           child: const Text('Add'),
         ),
       ]),

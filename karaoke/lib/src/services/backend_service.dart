@@ -48,24 +48,80 @@ class BackendService with ChangeNotifier {
   io.Socket? _socket;
   AppData? _state;
   AppData? get state => _state;
+  
+  bool _isConnected = false;
+  bool get isConnected => _isConnected;
+  String _connectionStatus = 'Connecting...';
+  String get connectionStatus => _connectionStatus;
 
-  Future<void> init() async {
+  String _getCurrentOrigin() {
+    // In production, always use HTTPS (Railway provides HTTPS)
+    // Get the hostname and construct the URL with HTTPS
     final host = getBackendHost();
-    baseUrl = 'http://$host:8082';
-    _connectSocket();
-    // Warm-up: fetch state once via REST in case socket is delayed
-    try {
-      final resp = await http.get(Uri.parse('$baseUrl/state'));
-      if (resp.statusCode == 200) {
-        final json = jsonDecode(resp.body) as Map<String, dynamic>;
-        _applyState(json);
-      }
-    } catch (_) {}
+    return 'https://$host';
   }
 
-  void _connectSocket() {
+  Future<void> init() async {
+    // Use full URLs to avoid go_router intercepting API calls
+    // Check if we're in a browser and can detect the protocol
+    final host = getBackendHost();
+    // For Railway/production: use same origin with current protocol
+    // For local dev: use explicit port 8082
+    final isLocalDev = host == 'localhost' || host == '127.0.0.1';
+    
+    if (isLocalDev) {
+      baseUrl = 'http://$host:8082';
+    } else {
+      // In production, use current origin (same protocol and host)
+      // This ensures HTTPS is used if the site is HTTPS
+      // Use window.location to get the current protocol
+      if (kIsWeb) {
+        // Get protocol and host from current page URL
+        // This will be resolved at compile time via conditional import
+        baseUrl = _getCurrentOrigin();
+      } else {
+        baseUrl = 'https://$host';
+      }
+    }
+    
+    debugPrint('Backend baseUrl: $baseUrl');
+    
+    // For Socket.IO, use the baseUrl
+    _connectSocket(baseUrl);
+    // Warm-up: fetch state once via REST in case socket is delayed
+    try {
+      _updateConnectionStatus('Testing HTTP connection...', false);
+      final stateUrl = '$baseUrl/state';
+      debugPrint('Fetching initial state from: $stateUrl');
+      final resp = await http.get(Uri.parse(stateUrl)).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('Connection timeout'),
+      );
+      debugPrint('State response: ${resp.statusCode}');
+      if (resp.statusCode == 200) {
+        final json = jsonDecode(resp.body) as Map<String, dynamic>;
+        debugPrint('State received: ${json['songs']?.length ?? 0} songs');
+        _applyState(json);
+        _updateConnectionStatus('HTTP connection OK, waiting for WebSocket...', false);
+      } else {
+        debugPrint('HTTP error: ${resp.statusCode} - ${resp.body}');
+        _updateConnectionStatus('HTTP error: ${resp.statusCode}', false);
+        // Set empty state so UI doesn't show loading forever
+        _applyState({'songs': <dynamic>[], 'timer': {'durationSeconds': 60, 'remainingSeconds': 60, 'isRunning': false}});
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch initial state: $e');
+      _updateConnectionStatus('HTTP connection failed: $e', false);
+      // Set empty state so UI doesn't show loading forever
+      _applyState({'songs': <dynamic>[], 'timer': {'durationSeconds': 60, 'remainingSeconds': 60, 'isRunning': false}});
+    }
+  }
+
+  void _connectSocket([String? url]) {
+    // If url is null/empty, Socket.IO will use current origin
+    _updateConnectionStatus('Connecting to backend...', false);
     _socket = io.io(
-      baseUrl,
+      url ?? '',
       io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
           .enableReconnection()
@@ -75,14 +131,52 @@ class BackendService with ChangeNotifier {
     _socket!.on('state:update', (data) {
       if (data is Map) _applyState(jsonDecode(jsonEncode(data)) as Map<String, dynamic>);
     });
+    _socket!.on('connect', (_) {
+      debugPrint('Socket.IO connected');
+      _updateConnectionStatus('Connected', true);
+    });
+    _socket!.on('disconnect', (_) {
+      debugPrint('Socket.IO disconnected');
+      _updateConnectionStatus('Disconnected', false);
+    });
+    _socket!.on('error', (err) {
+      debugPrint('Socket.IO error: $err');
+      _updateConnectionStatus('Connection error: $err', false);
+    });
+    _socket!.on('connect_error', (err) {
+      debugPrint('Socket.IO connect_error: $err');
+      _updateConnectionStatus('Connection failed: $err', false);
+    });
     _socket!.connect();
+  }
+  
+  void _updateConnectionStatus(String status, bool connected) {
+    _connectionStatus = status;
+    _isConnected = connected;
+    notifyListeners();
   }
 
   void _applyState(Map<String, dynamic> json) {
-    final songs = ((json['songs'] as List).cast<Map<String, dynamic>>()).map(SongModel.fromJson).toList();
-    final timer = TimerModel.fromJson(json['timer'] as Map<String, dynamic>);
-    _state = AppData(songs: songs, timer: timer);
-    notifyListeners();
+    try {
+      final songsList = json['songs'];
+      final songs = (songsList is List ? songsList : <dynamic>[])
+          .cast<Map<String, dynamic>>()
+          .map(SongModel.fromJson)
+          .toList();
+      final timer = TimerModel.fromJson(json['timer'] as Map<String, dynamic>);
+      _state = AppData(songs: songs, timer: timer);
+      debugPrint('State applied: ${songs.length} songs');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error applying state: $e');
+      debugPrint('State JSON: $json');
+      // Set empty state on error so UI doesn't show loading forever
+      _state = AppData(
+        songs: [],
+        timer: TimerModel(durationSeconds: 60, remainingSeconds: 60, isRunning: false),
+      );
+      notifyListeners();
+    }
   }
 
   // Commands
@@ -102,6 +196,10 @@ class BackendService with ChangeNotifier {
 
   void controlTimer(String action, {int? durationSeconds}) {
     _socket?.emit('timer:control', {"action": action, if (durationSeconds != null) "durationSeconds": durationSeconds});
+  }
+
+  Future<void> deleteSong(String id) async {
+    await http.delete(Uri.parse('$baseUrl/songs/$id'));
   }
 }
 

@@ -46,6 +46,17 @@ class _DjPageState extends State<DjPage> {
     }
   }
 
+  // Calculate if a color is dark (returns true) or light (returns false)
+  bool _isDarkColor(Color color) {
+    final luminance = color.computeLuminance();
+    return luminance < 0.5;
+  }
+
+  // Get appropriate text color for a background color
+  Color _getTextColorForBackground(Color backgroundColor) {
+    return _isDarkColor(backgroundColor) ? Colors.white : Colors.black;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = backend.state;
@@ -87,12 +98,43 @@ class _DjPageState extends State<DjPage> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Text('$minutes:$seconds', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: accentColor, fontFamily: themeService.fontFamily)),
                 const SizedBox(height: 16),
-                TextField(controller: _durationCtrl, decoration: const InputDecoration(labelText: 'Duration (sec)'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: _durationCtrl,
+                  style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Duration (sec)',
+                    labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor.withValues(alpha: 0.5))),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.buttonColor))),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Wrap(spacing: 8, runSpacing: 8, children: [
-                  ElevatedButton(onPressed: () => repo.controlTimer('start', durationSeconds: int.tryParse(_durationCtrl.text)), child: const Text('Start')),
-                  ElevatedButton(onPressed: () => repo.controlTimer('stop'), child: const Text('Stop')),
-                  ElevatedButton(onPressed: () => repo.controlTimer('reset'), child: const Text('Reset')),
+                  ElevatedButton(
+                    onPressed: () => repo.controlTimer('start', durationSeconds: int.tryParse(_durationCtrl.text)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _parseColor(themeService.buttonColor),
+                      foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+                    ),
+                    child: const Text('Start'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => repo.controlTimer('stop'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _parseColor(themeService.buttonColor),
+                      foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+                    ),
+                    child: const Text('Stop'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => repo.controlTimer('reset'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _parseColor(themeService.buttonColor),
+                      foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+                    ),
+                    child: const Text('Reset'),
+                  ),
                 ]),
               ]),
             ),
@@ -105,6 +147,7 @@ class _DjPageState extends State<DjPage> {
   Widget _addSongForm() {
     final cardColor = _parseColor(themeService.cardColor);
     final textColor = _parseColor(themeService.textColor);
+    final buttonColor = _parseColor(themeService.buttonColor);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
@@ -112,7 +155,18 @@ class _DjPageState extends State<DjPage> {
         Text('Add Song', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor, fontFamily: themeService.fontFamily)),
         const SizedBox(height: 8),
         Row(children: [
-          Expanded(child: TextField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Song name'))),
+          Expanded(
+            child: TextField(
+              controller: _titleCtrl,
+              style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
+              decoration: InputDecoration(
+                labelText: 'Song name',
+                labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor.withValues(alpha: 0.5))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+              ),
+            ),
+          ),
           const SizedBox(width: 8),
           ElevatedButton(
             onPressed: () async {
@@ -121,6 +175,10 @@ class _DjPageState extends State<DjPage> {
               await repo.addSong(title: title);
               _titleCtrl.clear(); _artistCtrl.clear();
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _parseColor(themeService.buttonColor),
+              foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+            ),
             child: const Text('Add'),
           ),
         ]),
@@ -134,13 +192,23 @@ class _DjPageState extends State<DjPage> {
     final textColor = _parseColor(themeService.textColor);
     final accentColor = _parseColor(themeService.accentColor);
     final bgColor = _parseColor(themeService.backgroundColor);
+    final buttonColor = _parseColor(themeService.buttonColor);
+    final primaryColor = _parseColor(themeService.primaryColor);
+    final secondaryColor = _parseColor(themeService.secondaryColor);
     return Container(
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.3), width: 2),
+        boxShadow: [
+          BoxShadow(color: secondaryColor.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1),
+        ],
+      ),
       child: state == null
           ? const Center(child: CircularProgressIndicator())
           : ListView.separated(
               itemCount: state.songs.length,
-              separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withOpacity(0.3)),
+              separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
               itemBuilder: (context, i) {
                 final s = state.songs[i];
                 return Padding(
@@ -149,7 +217,7 @@ class _DjPageState extends State<DjPage> {
                     Row(children: [
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(s.title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: textColor, fontFamily: themeService.fontFamily)),
-                        if (s.artist != null) Text(s.artist!, style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7), fontFamily: themeService.fontFamily)),
+                        if (s.artist != null) Text(s.artist!, style: TextStyle(fontSize: 14, color: textColor.withValues(alpha: 0.7), fontFamily: themeService.fontFamily)),
                       ])),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -159,16 +227,78 @@ class _DjPageState extends State<DjPage> {
                     ]),
                     const SizedBox(height: 8),
                     Wrap(spacing: 12, runSpacing: 12, children: [
-                      ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: -5), child: const Text('-5')),
-                      ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: -1), child: const Text('-1')),
-                      ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: 1), child: const Text('+1')),
-                      ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: 5), child: const Text('+5')),
-                      ElevatedButton(onPressed: () => repo.updateScore(s.id, delta: 10), child: const Text('+10')),
+                      ElevatedButton(
+                        onPressed: () => repo.updateScore(s.id, delta: -5),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: buttonColor,
+                          foregroundColor: _getTextColorForBackground(buttonColor),
+                        ),
+                        child: const Text('-5'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => repo.updateScore(s.id, delta: -1),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: buttonColor,
+                          foregroundColor: _getTextColorForBackground(buttonColor),
+                        ),
+                        child: const Text('-1'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => repo.updateScore(s.id, delta: 1),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: buttonColor,
+                          foregroundColor: _getTextColorForBackground(buttonColor),
+                        ),
+                        child: const Text('+1'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => repo.updateScore(s.id, delta: 5),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: buttonColor,
+                          foregroundColor: _getTextColorForBackground(buttonColor),
+                        ),
+                        child: const Text('+5'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => repo.updateScore(s.id, delta: 10),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: buttonColor,
+                          foregroundColor: _getTextColorForBackground(buttonColor),
+                        ),
+                        child: const Text('+10'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Remove Song'),
+                              content: Text('Remove "${s.title}" from the list?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove', style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) await repo.deleteSong(s.id);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.delete, size: 20),
+                        label: const Text('Delete'),
+                      ),
                       OutlinedButton(
                         onPressed: () {
                           final q = Uri.encodeComponent('${s.title} ${s.artist ?? ''} karaoke');
                           launchUrlString('https://www.youtube.com/results?search_query=$q', mode: LaunchMode.externalApplication);
                         },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textColor,
+                          side: BorderSide(color: buttonColor),
+                        ),
                         child: const Text('Search karaoke'),
                       ),
                       OutlinedButton(
@@ -187,11 +317,11 @@ class _DjPageState extends State<DjPage> {
                           );
                           if (value != null) await repo.setYoutubeUrl(id: s.id, youtubeUrl: value);
                         },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textColor,
+                          side: BorderSide(color: buttonColor),
+                        ),
                         child: const Text('Set URL'),
-                      ),
-                      ElevatedButton(
-                        onPressed: s.youtubeUrl != null ? () => launchUrlString(s.youtubeUrl!, mode: LaunchMode.externalApplication) : null,
-                        child: const Text('Open YouTube'),
                       ),
                     ]),
                   ]),
