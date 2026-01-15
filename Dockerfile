@@ -62,46 +62,56 @@ RUN npm rebuild better-sqlite3 --build-from-source
 # Copy frontend files
 COPY --from=frontend-build /app/frontend/build/web /usr/share/nginx/html
 
-# Create nginx config template (will be processed at runtime with PORT env var)
-RUN echo 'server { \
-    listen $PORT; \
-    server_name _; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    \
-    # Proxy Socket.IO requests first \
-    location /socket.io { \
-        proxy_pass http://localhost:8080; \
-        proxy_http_version 1.1; \
-        proxy_set_header Upgrade $http_upgrade; \
-        proxy_set_header Connection "upgrade"; \
-        proxy_set_header Host $host; \
-        proxy_set_header X-Real-IP $remote_addr; \
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
-        proxy_set_header X-Forwarded-Proto $scheme; \
+# Create nginx config template (complete config with events and http blocks)
+RUN echo 'events { \
+    worker_connections 1024; \
+} \
+\
+http { \
+    include /etc/nginx/mime.types; \
+    default_type application/octet-stream; \
+    sendfile on; \
+    keepalive_timeout 65; \
+    server { \
+        listen $PORT; \
+        server_name _; \
+        root /usr/share/nginx/html; \
+        index index.html; \
+        \
+        # Proxy Socket.IO requests first \
+        location /socket.io { \
+            proxy_pass http://localhost:8080; \
+            proxy_http_version 1.1; \
+            proxy_set_header Upgrade $http_upgrade; \
+            proxy_set_header Connection "upgrade"; \
+            proxy_set_header Host $host; \
+            proxy_set_header X-Real-IP $remote_addr; \
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+            proxy_set_header X-Forwarded-Proto $scheme; \
+        } \
+        \
+        # Proxy backend API routes (songs, state, health, theme, upload, images) \
+        location ~ ^/(songs|state|health|theme|upload|images) { \
+            proxy_pass http://localhost:8080; \
+            proxy_http_version 1.1; \
+            proxy_set_header Host $host; \
+            proxy_set_header X-Real-IP $remote_addr; \
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+            proxy_set_header X-Forwarded-Proto $scheme; \
+        } \
+        \
+        # Cache static assets \
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ { \
+            expires 1y; \
+            add_header Cache-Control "public, immutable"; \
+        } \
+        \
+        # SPA routing - serve index.html for all other routes \
+        location / { \
+            try_files $uri $uri/ /index.html; \
+        } \
     } \
-    \
-    # Proxy backend API routes (songs, state, health, theme, upload, images) \
-    location ~ ^/(songs|state|health|theme|upload|images) { \
-        proxy_pass http://localhost:8080; \
-        proxy_http_version 1.1; \
-        proxy_set_header Host $host; \
-        proxy_set_header X-Real-IP $remote_addr; \
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
-        proxy_set_header X-Forwarded-Proto $scheme; \
-    } \
-    \
-    # Cache static assets \
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ { \
-        expires 1y; \
-        add_header Cache-Control "public, immutable"; \
-    } \
-    \
-    # SPA routing - serve index.html for all other routes \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf.template
+}' > /etc/nginx/nginx.conf.template
 
 # Copy and set up startup script
 COPY start.sh /start.sh

@@ -5,7 +5,7 @@ set -e
 export PORT=${PORT:-80}
 
 # Generate nginx config with PORT env var
-envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+envsubst '$PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
 
 # Start backend in background
 cd /app/backend
