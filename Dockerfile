@@ -80,7 +80,7 @@ http { \
         \
         # Proxy Socket.IO requests first \
         location /socket.io { \
-            proxy_pass http://localhost:8080; \
+            proxy_pass http://localhost:3001; \
             proxy_http_version 1.1; \
             proxy_set_header Upgrade $http_upgrade; \
             proxy_set_header Connection "upgrade"; \
@@ -92,7 +92,7 @@ http { \
         \
         # Proxy backend API routes (songs, state, health, theme, upload, images) \
         location ~ ^/(songs|state|health|theme|upload|images) { \
-            proxy_pass http://localhost:8080; \
+            proxy_pass http://localhost:3001; \
             proxy_http_version 1.1; \
             proxy_set_header Host $host; \
             proxy_set_header X-Real-IP $remote_addr; \

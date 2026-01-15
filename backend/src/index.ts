@@ -265,9 +265,10 @@ io.on('connection', (socket) => {
   });
 });
 
-// Backend always listens on 8080 internally (nginx proxies to it)
+// Backend always listens on 3001 internally (nginx proxies to it)
 // Railway's PORT env var is for nginx, not the backend
-const BACKEND_PORT = 8080;
+// Using 3001 to avoid conflicts with Railway's PORT (which might be 8080)
+const BACKEND_PORT = 3001;
 server.listen(BACKEND_PORT, '127.0.0.1', () => {
   console.log(`karaoke backend listening on 127.0.0.1:${BACKEND_PORT}`);
 });
