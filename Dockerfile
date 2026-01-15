@@ -121,8 +121,7 @@ sleep 2 \
 exec nginx -g "daemon off;" \
 ' > /start.sh && chmod +x /start.sh
 
-# Persistent data directory
-VOLUME ["/data"]
+# Persistent data directory (Railway volumes are configured in dashboard, not Dockerfile)
 ENV NODE_ENV=production
 ENV DATA_DIR=/data
 
