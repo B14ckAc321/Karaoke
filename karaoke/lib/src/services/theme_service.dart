@@ -227,18 +227,35 @@ class ThemeService with ChangeNotifier {
     }
   }
 
-  Future<String?> uploadImage(List<int> imageBytes, String filename) async {
+  Future<String?> uploadImage(List<int> imageBytes, String filename, {String type = 'background'}) async {
     try {
-      final uri = Uri.parse('$baseUrl/images');
+      // Safety check: ensure baseUrl is HTTPS in production
+      String url = baseUrl;
+      if (!url.contains('localhost') && !url.contains('127.0.0.1')) {
+        url = url.replaceFirst('http://', 'https://').replaceAll(':8082', '');
+        if (url != baseUrl) {
+          baseUrl = url;
+        }
+      }
+      
+      final uri = Uri.parse('$baseUrl/upload/image');
       final request = http.MultipartRequest('POST', uri);
       request.files.add(http.MultipartFile.fromBytes('image', imageBytes, filename: filename));
+      request.fields['type'] = type; // 'background' or 'logo'
+      debugPrint('Uploading image: type=$type, size=${imageBytes.length} bytes');
       final resp = await request.send();
       if (resp.statusCode == 200) {
         final body = await resp.stream.bytesToString();
         final json = jsonDecode(body) as Map<String, dynamic>;
-        return json['url'] as String?;
+        final imageUrl = json['url'] as String?;
+        debugPrint('Image uploaded successfully: $imageUrl');
+        return imageUrl;
+      } else {
+        debugPrint('Image upload failed: ${resp.statusCode}');
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error uploading image: $e');
+    }
     return null;
   }
 

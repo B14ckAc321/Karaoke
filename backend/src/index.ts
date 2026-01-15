@@ -50,7 +50,23 @@ if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, imagesDir),
-  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
+  filename: (req, file, cb) => {
+    // Use fixed filenames based on the image type to replace existing images
+    // This saves storage space by replacing instead of accumulating
+    const imageType = (req.body?.type || req.query?.type || 'background') as string; // 'background' or 'logo'
+    const filename = imageType === 'logo' ? 'logo.jpg' : 'background.jpg';
+    // Delete old file if it exists (to save storage)
+    const filePath = path.join(imagesDir, filename);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+        console.log(`Deleted old ${filename} before upload`);
+      } catch (err) {
+        console.error(`Error deleting old ${filename}:`, err);
+      }
+    }
+    cb(null, filename);
+  },
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -263,13 +279,34 @@ app.post('/theme', (req, res) => {
   res.json({ ok: true, saved: savedCount, total: Object.keys(allSettings).length });
 });
 
-// Image upload
-app.post('/images', upload.single('image'), (req, res) => {
+// Image upload - replaces existing images to save storage
+app.post('/upload/image', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'no file uploaded' });
+  const imageType = req.body?.type || req.query?.type || 'background'; // 'background' or 'logo'
+  const filename = imageType === 'logo' ? 'logo.jpg' : 'background.jpg';
+  
+  // Ensure the uploaded file has the correct name
+  const filePath = path.join(imagesDir, req.file.filename);
+  const targetPath = path.join(imagesDir, filename);
+  if (req.file.filename !== filename && fs.existsSync(filePath)) {
+    // Rename to the correct filename
+    try {
+      if (fs.existsSync(targetPath)) {
+        fs.unlinkSync(targetPath); // Delete old file
+      }
+      fs.renameSync(filePath, targetPath);
+      console.log(`Renamed ${req.file.filename} to ${filename}`);
+    } catch (err) {
+      console.error(`Error renaming file:`, err);
+      return res.status(500).json({ error: 'failed to save image' });
+    }
+  }
+  
   const host = req.get('host') || 'localhost:8082';
   const protocol = req.protocol;
-  const imageUrl = `${protocol}://${host}/images/${req.file.filename}`;
-  res.json({ ok: true, url: imageUrl, filename: req.file.filename });
+  const imageUrl = `${protocol}://${host}/images/${filename}`;
+  console.log(`Image uploaded: ${filename} -> ${imageUrl}`);
+  res.json({ ok: true, url: imageUrl, filename: filename });
 });
 
 app.get('/images', (_req, res) => {

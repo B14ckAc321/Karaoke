@@ -61,10 +61,24 @@ class _SettingsPageState extends State<SettingsPage> {
     if (result?.files.single.bytes != null) {
       final bytes = result!.files.single.bytes!;
       final filename = result.files.single.name;
-      final url = await themeService.uploadImage(bytes, filename);
+      // Determine image type from key
+      final imageType = key == 'logoImageUrl' ? 'logo' : 'background';
+      final url = await themeService.uploadImage(bytes, filename, type: imageType);
       if (url != null) {
-        await themeService.saveSettings({key: url});
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image uploaded!')));
+        // Save with the correct key name (backgroundImageUrl or logoImageUrl)
+        final settingsMap = <String, String>{key: url};
+        await themeService.saveSettings(settingsMap);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${imageType == 'logo' ? 'Logo' : 'Background'} image uploaded and replaced!'))
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to upload image'))
+          );
+        }
       }
     }
   }
