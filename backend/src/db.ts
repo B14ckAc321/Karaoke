@@ -23,14 +23,9 @@ try {
   db = new Database(dbPath);
   console.log('Database initialized successfully');
   
-  // Test write access
-  try {
-    db.pragma('journal_mode = WAL');
-    console.log('Database is writable');
-  } catch (writeError) {
-    console.error('Database write test failed:', writeError);
-    console.warn('WARNING: Database may not be writable. Check volume mount in Railway.');
-  }
+  // Set WAL mode for better concurrency
+  db.pragma('journal_mode = WAL');
+  console.log('Database is writable');
 } catch (error) {
   console.error('Failed to initialize database:', error);
   console.error('Make sure /data volume is mounted in Railway settings!');
