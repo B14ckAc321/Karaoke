@@ -48,6 +48,11 @@ class BackendService with ChangeNotifier {
   io.Socket? _socket;
   AppData? _state;
   AppData? get state => _state;
+  
+  bool _isConnected = false;
+  bool get isConnected => _isConnected;
+  String _connectionStatus = 'Connecting...';
+  String get connectionStatus => _connectionStatus;
 
   Future<void> init() async {
     // Use relative URLs when deployed (same origin), explicit port for local dev
@@ -64,6 +69,7 @@ class BackendService with ChangeNotifier {
     _connectSocket(socketUrl);
     // Warm-up: fetch state once via REST in case socket is delayed
     try {
+      _updateConnectionStatus('Testing HTTP connection...', false);
       final stateUrl = baseUrl.isEmpty ? '/state' : '$baseUrl/state';
       final resp = await http.get(Uri.parse(stateUrl)).timeout(
         const Duration(seconds: 5),
@@ -72,15 +78,20 @@ class BackendService with ChangeNotifier {
       if (resp.statusCode == 200) {
         final json = jsonDecode(resp.body) as Map<String, dynamic>;
         _applyState(json);
+        _updateConnectionStatus('HTTP connection OK, waiting for WebSocket...', false);
+      } else {
+        _updateConnectionStatus('HTTP error: ${resp.statusCode}', false);
       }
     } catch (e) {
       debugPrint('Failed to fetch initial state: $e');
+      _updateConnectionStatus('HTTP connection failed: $e', false);
       // Don't throw - let socket handle it
     }
   }
 
   void _connectSocket([String? url]) {
     // If url is null/empty, Socket.IO will use current origin
+    _updateConnectionStatus('Connecting to backend...', false);
     _socket = io.io(
       url ?? '',
       io.OptionBuilder()
@@ -92,10 +103,29 @@ class BackendService with ChangeNotifier {
     _socket!.on('state:update', (data) {
       if (data is Map) _applyState(jsonDecode(jsonEncode(data)) as Map<String, dynamic>);
     });
-    _socket!.on('connect', (_) => debugPrint('Socket.IO connected'));
-    _socket!.on('disconnect', (_) => debugPrint('Socket.IO disconnected'));
-    _socket!.on('error', (err) => debugPrint('Socket.IO error: $err'));
+    _socket!.on('connect', (_) {
+      debugPrint('Socket.IO connected');
+      _updateConnectionStatus('Connected', true);
+    });
+    _socket!.on('disconnect', (_) {
+      debugPrint('Socket.IO disconnected');
+      _updateConnectionStatus('Disconnected', false);
+    });
+    _socket!.on('error', (err) {
+      debugPrint('Socket.IO error: $err');
+      _updateConnectionStatus('Connection error: $err', false);
+    });
+    _socket!.on('connect_error', (err) {
+      debugPrint('Socket.IO connect_error: $err');
+      _updateConnectionStatus('Connection failed: $err', false);
+    });
     _socket!.connect();
+  }
+  
+  void _updateConnectionStatus(String status, bool connected) {
+    _connectionStatus = status;
+    _isConnected = connected;
+    notifyListeners();
   }
 
   void _applyState(Map<String, dynamic> json) {
