@@ -10,7 +10,7 @@ class ThemeService with ChangeNotifier {
   static final ThemeService _instance = ThemeService._internal();
   static ThemeService getInstance() => _instance;
 
-  late final String baseUrl;
+  String baseUrl = ''; // Will be initialized in init()
   io.Socket? _socket;
   Map<String, String> _settings = {};
 
@@ -38,28 +38,24 @@ class ThemeService with ChangeNotifier {
     
     if (isLocalDev) {
       baseUrl = 'http://$host:8082';
-      debugPrint('ThemeService: Using local dev URL');
+      debugPrint('ThemeService: Using local dev URL: $baseUrl');
     } else {
-      // In production, use HTTPS (same as BackendService)
-      // Use the same origin as the current page to avoid mixed content errors
-      if (kIsWeb) {
-        // Get protocol and host from current page URL
-        baseUrl = _getCurrentOrigin();
-        debugPrint('ThemeService: Using web origin (HTTPS)');
-      } else {
+      // In production, ALWAYS use HTTPS without port
+      // Never use http:// or :8082 in production
+      baseUrl = 'https://$host';
+      debugPrint('ThemeService: Using production HTTPS URL: $baseUrl');
+    }
+    
+    // Final safety check - absolutely no http:// or :8082 in production
+    if (!isLocalDev) {
+      if (baseUrl.contains('http://') || baseUrl.contains(':8082')) {
+        debugPrint('ERROR: ThemeService baseUrl contains http:// or :8082 in production! Force fixing...');
         baseUrl = 'https://$host';
-        debugPrint('ThemeService: Using HTTPS for non-web platform');
+        debugPrint('ThemeService baseUrl (force fixed): $baseUrl');
       }
     }
     
-    debugPrint('ThemeService baseUrl: $baseUrl');
-    
-    // Verify baseUrl doesn't contain http:// in production
-    if (!isLocalDev && baseUrl.startsWith('http://')) {
-      debugPrint('ERROR: ThemeService baseUrl is HTTP in production! Fixing...');
-      baseUrl = baseUrl.replaceFirst('http://', 'https://').replaceAll(':8082', '');
-      debugPrint('ThemeService baseUrl (fixed): $baseUrl');
-    }
+    debugPrint('ThemeService final baseUrl: $baseUrl');
     
     // Load settings first, then connect socket
     await loadSettings();
@@ -135,11 +131,24 @@ class ThemeService with ChangeNotifier {
     try {
       // Safety check: ensure baseUrl is HTTPS in production
       String url = baseUrl;
+      if (url.isEmpty) {
+        debugPrint('ThemeService: baseUrl is empty, initializing...');
+        await init();
+        url = baseUrl;
+      }
       if (!url.contains('localhost') && !url.contains('127.0.0.1')) {
         // Production - force HTTPS and remove port
         url = url.replaceFirst('http://', 'https://').replaceAll(':8082', '');
         if (url != baseUrl) {
           debugPrint('ThemeService: Fixed baseUrl from $baseUrl to $url');
+          baseUrl = url;
+        }
+      }
+      // Final safety check - ensure no http:// or :8082 in production
+      if (!url.contains('localhost') && !url.contains('127.0.0.1')) {
+        if (url.contains('http://') || url.contains(':8082')) {
+          url = 'https://${getBackendHost()}';
+          debugPrint('ThemeService: Force-corrected baseUrl to $url');
           baseUrl = url;
         }
       }
