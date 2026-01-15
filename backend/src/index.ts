@@ -265,9 +265,11 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT ? Number(process.env.PORT) : 8080;
-server.listen(PORT, () => {
-  console.log(`karaoke backend listening on :${PORT}`);
+// Backend always listens on 8080 internally (nginx proxies to it)
+// Railway's PORT env var is for nginx, not the backend
+const BACKEND_PORT = 8080;
+server.listen(BACKEND_PORT, '127.0.0.1', () => {
+  console.log(`karaoke backend listening on 127.0.0.1:${BACKEND_PORT}`);
 });
 
 // Timer tick to keep clients in sync even if no REST calls happen
