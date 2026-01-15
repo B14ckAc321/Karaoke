@@ -2,10 +2,8 @@
 set -e
 
 # Use PORT env var if set (Railway), otherwise default to 80
-# Railway sets PORT, but if it's 8080 (backend port), use 80 instead
-if [ -z "$PORT" ] || [ "$PORT" = "8080" ]; then
-    export PORT=80
-fi
+# Railway automatically sets PORT to the port it wants the service to listen on
+export PORT=${PORT:-80}
 
 # Debug: print PORT value
 echo "Starting with PORT=$PORT"

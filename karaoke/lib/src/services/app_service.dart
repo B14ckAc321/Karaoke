@@ -23,12 +23,16 @@ final class AppService with ChangeNotifier {
   Future<void> onAppStart(BuildContext context) async {
     // Await for all the services to be initialized
     // All services or repositories instances in this function will
-    await Future.wait([
-      ExampleRepository.getInstance().init(),
-      BackendService.getInstance().init(),
-      ThemeService.getInstance().init(),
-    ]);
-
+    try {
+      await Future.wait([
+        ExampleRepository.getInstance().init(),
+        BackendService.getInstance().init().timeout(const Duration(seconds: 10)),
+        ThemeService.getInstance().init(),
+      ]).timeout(const Duration(seconds: 15));
+    } catch (e) {
+      Logger.info('Error during initialization (continuing anyway): $e', name: 'AppService.onAppStart');
+      // Continue anyway - don't block the app from loading
+    }
 
     // Other initialization code can go here
 

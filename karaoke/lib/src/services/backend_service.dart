@@ -57,20 +57,32 @@ class BackendService with ChangeNotifier {
     // For local dev: use explicit port 8082
     final isLocalDev = host == 'localhost' || host == '127.0.0.1';
     baseUrl = isLocalDev ? 'http://$host:8082' : '';
-    _connectSocket();
+    
+    // For Socket.IO, if baseUrl is empty, use current origin
+    final socketUrl = baseUrl.isEmpty ? null : baseUrl;
+    
+    _connectSocket(socketUrl);
     // Warm-up: fetch state once via REST in case socket is delayed
     try {
-      final resp = await http.get(Uri.parse('$baseUrl/state'));
+      final stateUrl = baseUrl.isEmpty ? '/state' : '$baseUrl/state';
+      final resp = await http.get(Uri.parse(stateUrl)).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException('Connection timeout'),
+      );
       if (resp.statusCode == 200) {
         final json = jsonDecode(resp.body) as Map<String, dynamic>;
         _applyState(json);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Failed to fetch initial state: $e');
+      // Don't throw - let socket handle it
+    }
   }
 
-  void _connectSocket() {
+  void _connectSocket([String? url]) {
+    // If url is null/empty, Socket.IO will use current origin
     _socket = io.io(
-      baseUrl,
+      url ?? '',
       io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
           .enableReconnection()
@@ -80,6 +92,9 @@ class BackendService with ChangeNotifier {
     _socket!.on('state:update', (data) {
       if (data is Map) _applyState(jsonDecode(jsonEncode(data)) as Map<String, dynamic>);
     });
+    _socket!.on('connect', (_) => debugPrint('Socket.IO connected'));
+    _socket!.on('disconnect', (_) => debugPrint('Socket.IO disconnected'));
+    _socket!.on('error', (err) => debugPrint('Socket.IO error: $err'));
     _socket!.connect();
   }
 
