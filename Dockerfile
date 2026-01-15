@@ -48,7 +48,8 @@ FROM node:20-alpine
 
 # Install nginx and build dependencies (for rebuilding native modules if needed)
 RUN apk add --no-cache nginx python3 make g++ libstdc++ wget dumb-init gettext && \
-    mkdir -p /var/log/nginx /var/cache/nginx /etc/nginx/conf.d
+    mkdir -p /var/log/nginx /var/cache/nginx /etc/nginx/conf.d /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/log/nginx /var/cache/nginx /usr/share/nginx/html
 
 # Copy backend files
 WORKDIR /app/backend
