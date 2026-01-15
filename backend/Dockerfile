@@ -15,7 +15,7 @@ RUN npx tsc -p tsconfig.json
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache libstdc++
+RUN apk add --no-cache libstdc++ wget
 COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=build /app/dist /app/dist
 COPY package.json ./

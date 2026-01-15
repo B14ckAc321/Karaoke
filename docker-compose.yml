@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   backend:
     build:
@@ -16,13 +15,22 @@ services:
       interval: 10s
       timeout: 2s
       retries: 5
+    networks:
+      - karaoke-network
 
-  # Placeholder for Flutter web build output served by nginx
-  # Frontend is built/run locally via Flutter; no container.
+  frontend:
+    build:
+      context: ./karaoke
+    container_name: karaoke-frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    networks:
+      - karaoke-network
 
-  # Optional reverse proxy to expose clean ports, can be added later
 networks:
-  default:
+  karaoke-network:
     driver: bridge
 volumes:
   karaoke_data:
