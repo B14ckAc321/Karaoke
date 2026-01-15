@@ -82,6 +82,7 @@ function sortSongsByScore() {
 
 function broadcastState() {
   sortSongsByScore();
+  console.log(`Broadcasting state update: ${state.songs.length} songs, ${io.sockets.sockets.size} connected clients`);
   io.emit('state:update', state);
 }
 
@@ -108,6 +109,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.get('/state', (_req, res) => {
   recalcRemaining();
+  console.log(`GET /state - returning ${state.songs.length} songs`);
   res.json(state);
 });
 
@@ -239,6 +241,10 @@ app.delete('/images/:filename', (req, res) => {
 
 // Socket.IO
 io.on('connection', (socket) => {
+  console.log('Socket.IO client connected');
+  // Send initial state to newly connected client
+  recalcRemaining();
+  socket.emit('state:update', state);
   recalcRemaining();
   socket.emit('state:update', state);
 

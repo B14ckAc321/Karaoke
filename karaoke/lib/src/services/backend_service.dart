@@ -54,23 +54,44 @@ class BackendService with ChangeNotifier {
   String _connectionStatus = 'Connecting...';
   String get connectionStatus => _connectionStatus;
 
+  String _getCurrentOrigin() {
+    // In production, always use HTTPS (Railway provides HTTPS)
+    // Get the hostname and construct the URL with HTTPS
+    final host = getBackendHost();
+    return 'https://$host';
+  }
+
   Future<void> init() async {
-    // Use relative URLs when deployed (same origin), explicit port for local dev
+    // Use full URLs to avoid go_router intercepting API calls
     // Check if we're in a browser and can detect the protocol
     final host = getBackendHost();
-    // For Railway/production: use relative URLs (same origin)
+    // For Railway/production: use same origin with current protocol
     // For local dev: use explicit port 8082
     final isLocalDev = host == 'localhost' || host == '127.0.0.1';
-    baseUrl = isLocalDev ? 'http://$host:8082' : '';
     
-    // For Socket.IO, if baseUrl is empty, use current origin
-    final socketUrl = baseUrl.isEmpty ? null : baseUrl;
+    if (isLocalDev) {
+      baseUrl = 'http://$host:8082';
+    } else {
+      // In production, use current origin (same protocol and host)
+      // This ensures HTTPS is used if the site is HTTPS
+      // Use window.location to get the current protocol
+      if (kIsWeb) {
+        // Get protocol and host from current page URL
+        // This will be resolved at compile time via conditional import
+        baseUrl = _getCurrentOrigin();
+      } else {
+        baseUrl = 'https://$host';
+      }
+    }
     
-    _connectSocket(socketUrl);
+    debugPrint('Backend baseUrl: $baseUrl');
+    
+    // For Socket.IO, use the baseUrl
+    _connectSocket(baseUrl);
     // Warm-up: fetch state once via REST in case socket is delayed
     try {
       _updateConnectionStatus('Testing HTTP connection...', false);
-      final stateUrl = baseUrl.isEmpty ? '/state' : '$baseUrl/state';
+      final stateUrl = '$baseUrl/state';
       debugPrint('Fetching initial state from: $stateUrl');
       final resp = await http.get(Uri.parse(stateUrl)).timeout(
         const Duration(seconds: 10),
