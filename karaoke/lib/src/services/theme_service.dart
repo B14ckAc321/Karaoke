@@ -50,7 +50,11 @@ class ThemeService with ChangeNotifier {
   }
 
   void _connectSocket() {
-    debugPrint('Connecting ThemeService Socket.IO to: $baseUrl');
+    // Don't create a separate Socket.IO connection
+    // Instead, listen to BackendService's connection for theme updates
+    // This avoids having two separate connections
+    debugPrint('ThemeService: Will receive updates via BackendService Socket.IO connection');
+    // Still try to connect for backwards compatibility, but prefer BackendService
     _socket = io.io(
       baseUrl,
       io.OptionBuilder()
@@ -60,7 +64,7 @@ class ThemeService with ChangeNotifier {
           .build(),
     );
     _socket!.on('connect', (_) {
-      debugPrint('ThemeService Socket.IO connected');
+      debugPrint('ThemeService Socket.IO connected (backup connection)');
       // Reload settings when reconnected to ensure we have latest
       loadSettings();
     });
@@ -71,28 +75,34 @@ class ThemeService with ChangeNotifier {
       debugPrint('ThemeService Socket.IO error: $err');
     });
     _socket!.on('theme:update', (data) {
-      debugPrint('ThemeService received theme:update event');
-      try {
-        Map<String, dynamic> settingsMap;
-        if (data is Map) {
-          settingsMap = Map<String, dynamic>.from(data);
-        } else if (data is String) {
-          settingsMap = jsonDecode(data) as Map<String, dynamic>;
-        } else {
-          debugPrint('Unexpected theme:update format, reloading from server');
-          loadSettings();
-          return;
-        }
-        _settings = settingsMap.map((key, value) => MapEntry(key, value.toString()));
-        debugPrint('Theme settings updated via Socket.IO: ${_settings.length} settings');
-        notifyListeners();
-      } catch (e) {
-        debugPrint('Error processing theme:update: $e, reloading from server');
-        // If socket update fails, reload from server
-        loadSettings();
-      }
+      _handleThemeUpdate(data);
     });
     _socket!.connect();
+  }
+  
+  // Handle theme update from Socket.IO (can be called from BackendService or directly)
+  void _handleThemeUpdate(dynamic data) {
+    debugPrint('ThemeService received theme:update event');
+    try {
+      Map<String, dynamic> settingsMap;
+      if (data is Map) {
+        settingsMap = Map<String, dynamic>.from(data);
+      } else if (data is String) {
+        settingsMap = jsonDecode(data) as Map<String, dynamic>;
+      } else {
+        debugPrint('Unexpected theme:update format, reloading from server');
+        loadSettings();
+        return;
+      }
+      _settings = settingsMap.map((key, value) => MapEntry(key, value.toString()));
+      debugPrint('Theme settings updated via Socket.IO: ${_settings.length} settings');
+      debugPrint('Theme keys: ${_settings.keys.join(', ')}');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error processing theme:update: $e, reloading from server');
+      // If socket update fails, reload from server
+      loadSettings();
+    }
   }
 
   Future<void> loadSettings() async {

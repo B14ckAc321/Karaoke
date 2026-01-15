@@ -236,21 +236,31 @@ app.post('/timer/reset', (_req, res) => {
 
 // Theme settings
 app.get('/theme', (_req, res) => {
-  res.json(getAllThemeSettings());
+  const settings = getAllThemeSettings();
+  console.log(`GET /theme - returning ${Object.keys(settings).length} theme settings`);
+  res.json(settings);
 });
 
 app.post('/theme', (req, res) => {
   const settings = req.body ?? {};
   console.log(`POST /theme - saving ${Object.keys(settings).length} settings`);
+  let savedCount = 0;
   for (const [key, value] of Object.entries(settings)) {
     if (typeof value === 'string') {
       setThemeSetting(key, value);
+      savedCount++;
       console.log(`  - ${key}: ${value}`);
     }
   }
+  console.log(`Saved ${savedCount} theme settings to database`);
+  
+  // Verify settings were saved
+  const allSettings = getAllThemeSettings();
+  console.log(`Database now contains ${Object.keys(allSettings).length} theme settings`);
+  
   console.log('Broadcasting theme update...');
   broadcastThemeUpdate();
-  res.json({ ok: true });
+  res.json({ ok: true, saved: savedCount, total: Object.keys(allSettings).length });
 });
 
 // Image upload
