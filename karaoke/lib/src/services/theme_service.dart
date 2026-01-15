@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show ChangeNotifier, debugPrint, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'backend_host_stub.dart' if (dart.library.html) 'backend_host_web.dart' show getBackendHost;
@@ -39,7 +39,13 @@ class ThemeService with ChangeNotifier {
       baseUrl = 'http://$host:8082';
     } else {
       // In production, use HTTPS (same as BackendService)
-      baseUrl = 'https://$host';
+      // Use the same origin as the current page to avoid mixed content errors
+      if (kIsWeb) {
+        // Get protocol and host from current page URL
+        baseUrl = _getCurrentOrigin();
+      } else {
+        baseUrl = 'https://$host';
+      }
     }
     
     debugPrint('ThemeService baseUrl: $baseUrl');
@@ -47,6 +53,13 @@ class ThemeService with ChangeNotifier {
     // Load settings first, then connect socket
     await loadSettings();
     _connectSocket();
+  }
+  
+  String _getCurrentOrigin() {
+    // In production, always use HTTPS (Railway provides HTTPS)
+    // Get the hostname and construct the URL with HTTPS
+    final host = getBackendHost();
+    return 'https://$host';
   }
 
   void _connectSocket() {
