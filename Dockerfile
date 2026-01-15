@@ -12,9 +12,10 @@ RUN npm install --no-audit --no-fund
 FROM node:20-alpine AS backend-build
 WORKDIR /app/backend
 COPY --from=backend-deps /app/backend/node_modules ./node_modules
+COPY backend/package.json ./
 COPY backend/tsconfig.json ./
 COPY backend/src ./src
-RUN npx tsc -p tsconfig.json
+RUN npm run build
 
 # ============================================
 # Stage 2: Build Frontend

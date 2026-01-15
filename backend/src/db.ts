@@ -20,12 +20,13 @@ console.log(`Database path: ${dbPath}`);
 
 let db: Database;
 try {
-  db = new Database(dbPath);
+  const database = new Database(dbPath);
   console.log('Database initialized successfully');
   
   // Set WAL mode for better concurrency
-  db.pragma('journal_mode = WAL');
+  database.pragma('journal_mode = WAL');
   console.log('Database is writable');
+  db = database;
 } catch (error) {
   console.error('Failed to initialize database:', error);
   console.error('Make sure /data volume is mounted in Railway settings!');
