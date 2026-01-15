@@ -11,12 +11,37 @@ export type DbSong = {
 };
 
 const dataDir = process.env.DATA_DIR || '/data';
+console.log(`Using data directory: ${dataDir}`);
+console.log(`DATA_DIR environment variable: ${process.env.DATA_DIR || 'not set (using default /data)'}`);
+
 if (!fs.existsSync(dataDir)) {
   console.log(`Creating data directory: ${dataDir}`);
   fs.mkdirSync(dataDir, { recursive: true });
+} else {
+  console.log(`Data directory already exists: ${dataDir}`);
 }
+
+// Check if directory is writable
+try {
+  const testFile = path.join(dataDir, '.volume-test');
+  fs.writeFileSync(testFile, 'test');
+  fs.unlinkSync(testFile);
+  console.log(`✓ Data directory is writable: ${dataDir}`);
+} catch (error) {
+  console.error(`✗ Data directory is NOT writable: ${dataDir}`, error);
+  console.error('WARNING: Volume may not be mounted correctly!');
+}
+
 const dbPath = path.join(dataDir, 'karaoke.db');
 console.log(`Database path: ${dbPath}`);
+
+// Check if database file exists (indicates persistence)
+if (fs.existsSync(dbPath)) {
+  const stats = fs.statSync(dbPath);
+  console.log(`Database file exists (${stats.size} bytes, modified: ${stats.mtime})`);
+} else {
+  console.log('Database file does not exist yet (will be created)');
+}
 
 let db: InstanceType<typeof Database>;
 try {

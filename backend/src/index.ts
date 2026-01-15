@@ -105,7 +105,41 @@ function recalcRemaining() {
 }
 
 // REST API
-app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/health', (_req, res) => {
+  const dataDir = process.env.DATA_DIR || '/data';
+  const dbPath = path.join(dataDir, 'karaoke.db');
+  const volumeMounted = fs.existsSync(dataDir);
+  const dbExists = fs.existsSync(dbPath);
+  let dbSize = 0;
+  if (dbExists) {
+    try {
+      dbSize = fs.statSync(dbPath).size;
+    } catch (_) {}
+  }
+  
+  res.json({
+    ok: true,
+    volume: {
+      dataDir,
+      mounted: volumeMounted,
+      writable: (() => {
+        try {
+          const testFile = path.join(dataDir, '.test');
+          fs.writeFileSync(testFile, 'test');
+          fs.unlinkSync(testFile);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      })(),
+    },
+    database: {
+      path: dbPath,
+      exists: dbExists,
+      size: dbSize,
+    },
+  });
+});
 
 app.get('/state', (_req, res) => {
   recalcRemaining();
