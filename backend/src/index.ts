@@ -279,53 +279,69 @@ app.post('/theme', (req, res) => {
   res.json({ ok: true, saved: savedCount, total: Object.keys(allSettings).length });
 });
 
-// Image upload - replaces existing images to save storage
+// Image upload - stores images as base64 in database
 app.post('/upload/image', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'no file uploaded' });
   const imageType = req.body?.type || req.query?.type || 'background'; // 'background' or 'logo'
-  const filename = imageType === 'logo' ? 'logo.jpg' : 'background.jpg';
+  const settingKey = imageType === 'logo' ? 'logoImageUrl' : 'backgroundImageUrl';
   
-  // Ensure the uploaded file has the correct name
-  const filePath = path.join(imagesDir, req.file.filename);
-  const targetPath = path.join(imagesDir, filename);
-  if (req.file.filename !== filename && fs.existsSync(filePath)) {
-    // Rename to the correct filename
-    try {
-      if (fs.existsSync(targetPath)) {
-        fs.unlinkSync(targetPath); // Delete old file
+  try {
+    // Read the uploaded file and convert to base64
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = req.file.mimetype || 'image/jpeg';
+    const dataUri = `data:${mimeType};base64,${base64Image}`;
+    
+    // Store in database (replaces existing image)
+    setThemeSetting(settingKey, dataUri);
+    console.log(`Image uploaded and stored in database: ${settingKey} (${imageBuffer.length} bytes, base64: ${base64Image.length} chars)`);
+    
+    // Delete the temporary file
+    fs.unlinkSync(req.file.path);
+    
+    // Broadcast theme update so all clients get the new image
+    broadcastThemeUpdate();
+    
+    // Return the data URI (frontend can use this directly)
+    res.json({ ok: true, url: dataUri, key: settingKey });
+  } catch (err) {
+    console.error('Error processing image upload:', err);
+    // Clean up temp file if it exists
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (e) {
+        // Ignore cleanup errors
       }
-      fs.renameSync(filePath, targetPath);
-      console.log(`Renamed ${req.file.filename} to ${filename}`);
-    } catch (err) {
-      console.error(`Error renaming file:`, err);
-      return res.status(500).json({ error: 'failed to save image' });
     }
+    res.status(500).json({ error: 'failed to process image' });
+  }
+});
+
+// Get image from database (serves base64 data URI as image)
+// This endpoint is optional since frontend can use data URIs directly
+app.get('/images/:key', (req, res) => {
+  const { key } = req.params;
+  const settingKey = key === 'logo' ? 'logoImageUrl' : 'backgroundImageUrl';
+  const dataUri = getThemeSetting(settingKey);
+  
+  if (!dataUri || !dataUri.startsWith('data:')) {
+    return res.status(404).json({ error: 'image not found' });
   }
   
-  const host = req.get('host') || 'localhost:8082';
-  const protocol = req.protocol;
-  const imageUrl = `${protocol}://${host}/images/${filename}`;
-  console.log(`Image uploaded: ${filename} -> ${imageUrl}`);
-  res.json({ ok: true, url: imageUrl, filename: filename });
-});
-
-app.get('/images', (_req, res) => {
-  const files = fs.readdirSync(imagesDir).map(f => ({
-    filename: f,
-    url: `/images/${f}`,
-  }));
-  res.json(files);
-});
-
-app.delete('/images/:filename', (req, res) => {
-  const { filename } = req.params;
-  const filePath = path.join(imagesDir, filename);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    res.json({ ok: true });
-  } else {
-    res.status(404).json({ error: 'not found' });
+  // Extract mime type and base64 data from data URI
+  const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    return res.status(500).json({ error: 'invalid image format' });
   }
+  
+  const mimeType = match[1];
+  const base64Data = match[2];
+  const imageBuffer = Buffer.from(base64Data, 'base64');
+  
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+  res.send(imageBuffer);
 });
 
 // Socket.IO
