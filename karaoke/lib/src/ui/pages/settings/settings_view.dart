@@ -56,6 +56,17 @@ class _SettingsPageState extends State<SettingsPage> {
     _timerSizeCtrl.text = themeService.timerFontSize.toInt().toString();
   }
 
+  // Calculate if a color is dark (returns true) or light (returns false)
+  bool _isDarkColor(Color color) {
+    final luminance = color.computeLuminance();
+    return luminance < 0.5;
+  }
+
+  // Get appropriate text color for a background color
+  Color _getTextColorForBackground(Color backgroundColor) {
+    return _isDarkColor(backgroundColor) ? Colors.white : Colors.black;
+  }
+
   Future<void> _uploadImage(String key) async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result?.files.single.bytes != null) {
@@ -140,8 +151,19 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = _backgroundColor;
+    final textColor = _getTextColorForBackground(bgColor);
+    final cardColor = _cardColor;
+    final cardTextColor = _getTextColorForBackground(cardColor);
+    final buttonColor = _buttonColor;
+    final buttonTextColor = _getTextColorForBackground(buttonColor);
+    
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings & Customization')),
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        title: Text('Settings & Customization', style: TextStyle(color: textColor)),
+        backgroundColor: cardColor,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -158,28 +180,82 @@ class _SettingsPageState extends State<SettingsPage> {
           _section('Fonts', [
             _fontPickerField(),
             const SizedBox(height: 12),
-            TextField(controller: _titleSizeCtrl, decoration: const InputDecoration(labelText: 'Title Font Size'), keyboardType: TextInputType.number),
-            TextField(controller: _scoreSizeCtrl, decoration: const InputDecoration(labelText: 'Score Font Size'), keyboardType: TextInputType.number),
-            TextField(controller: _timerSizeCtrl, decoration: const InputDecoration(labelText: 'Timer Font Size'), keyboardType: TextInputType.number),
+            TextField(
+              controller: _titleSizeCtrl,
+              decoration: InputDecoration(
+                labelText: 'Title Font Size',
+                labelStyle: TextStyle(color: cardTextColor),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: cardTextColor.withValues(alpha: 0.5))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+              ),
+              style: TextStyle(color: cardTextColor),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _scoreSizeCtrl,
+              decoration: InputDecoration(
+                labelText: 'Score Font Size',
+                labelStyle: TextStyle(color: cardTextColor),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: cardTextColor.withValues(alpha: 0.5))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+              ),
+              style: TextStyle(color: cardTextColor),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _timerSizeCtrl,
+              decoration: InputDecoration(
+                labelText: 'Timer Font Size',
+                labelStyle: TextStyle(color: cardTextColor),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: cardTextColor.withValues(alpha: 0.5))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+              ),
+              style: TextStyle(color: cardTextColor),
+              keyboardType: TextInputType.number,
+            ),
           ]),
           const SizedBox(height: 16),
           _section('Images', [
-            ElevatedButton(onPressed: () => _uploadImage('backgroundImageUrl'), child: const Text('Upload Background Image')),
-            ElevatedButton(onPressed: () => _uploadImage('logoImageUrl'), child: const Text('Upload Logo Image')),
+            ElevatedButton(
+              onPressed: () => _uploadImage('backgroundImageUrl'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: buttonTextColor,
+              ),
+              child: const Text('Upload Background Image'),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () => _uploadImage('logoImageUrl'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: buttonTextColor,
+              ),
+              child: const Text('Upload Logo Image'),
+            ),
           ]),
           const SizedBox(height: 24),
-          ElevatedButton(onPressed: _saveSettings, child: const Text('Save All Settings')),
+          ElevatedButton(
+            onPressed: _saveSettings,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: buttonColor,
+              foregroundColor: buttonTextColor,
+            ),
+            child: const Text('Save All Settings'),
+          ),
         ],
       ),
     );
   }
 
   Widget _section(String title, List<Widget> children) {
+    final cardColor = _cardColor;
+    final cardTextColor = _getTextColorForBackground(cardColor);
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF11182b), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cardTextColor)),
         const SizedBox(height: 12),
         ...children,
       ]),
@@ -187,13 +263,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _colorPickerField(String label, Color color, void Function(Color) onColorChanged) {
+    final cardColor = _cardColor;
+    final cardTextColor = _getTextColorForBackground(cardColor);
     return InkWell(
       onTap: () => _showColorPicker(label, color, onColorChanged),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(children: [
           Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 16)),
+            child: Text(label, style: TextStyle(fontSize: 16, color: cardTextColor)),
           ),
           const SizedBox(width: 12),
           Container(
@@ -211,7 +289,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(width: 8),
           Text(
             _colorToHex(color),
-            style: TextStyle(fontSize: 14, color: Colors.grey[400], fontFamily: 'monospace'),
+            style: TextStyle(fontSize: 14, color: cardTextColor.withValues(alpha: 0.7), fontFamily: 'monospace'),
           ),
         ]),
       ),
@@ -233,10 +311,23 @@ class _SettingsPageState extends State<SettingsPage> {
       'Trebuchet MS',
       'Lucida Console',
     ];
+    final cardColor = _cardColor;
+    final cardTextColor = _getTextColorForBackground(cardColor);
+    final buttonColor = _buttonColor;
     return DropdownButtonFormField<String>(
       value: _selectedFont,
-      decoration: const InputDecoration(labelText: 'Font Family'),
-      items: fonts.map((font) => DropdownMenuItem(value: font, child: Text(font))).toList(),
+      decoration: InputDecoration(
+        labelText: 'Font Family',
+        labelStyle: TextStyle(color: cardTextColor),
+        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: cardTextColor.withValues(alpha: 0.5))),
+        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+      ),
+      dropdownColor: cardColor,
+      style: TextStyle(color: cardTextColor),
+      items: fonts.map((font) => DropdownMenuItem(
+        value: font,
+        child: Text(font, style: TextStyle(color: cardTextColor)),
+      )).toList(),
       onChanged: (value) {
         if (value != null) setState(() => _selectedFont = value);
       },
