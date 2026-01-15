@@ -1,53 +1,19 @@
-#!/bin/bash
+#!/bin/sh
+set -e
 
-# Karaoke Party System - Quick Start Script
+# Use PORT env var if set (Railway), otherwise default to 80
+export PORT=${PORT:-80}
 
-echo "🎤 Starting Karaoke Party System..."
-echo ""
+# Generate nginx config with PORT env var
+envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "❌ Error: Docker is not running. Please start Docker and try again."
-    exit 1
-fi
+# Start backend in background
+cd /app/backend
+node dist/index.js &
+BACKEND_PID=$!
 
-# Check if docker-compose is available
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    echo "❌ Error: docker-compose is not installed."
-    exit 1
-fi
+# Wait a moment for backend to start
+sleep 2
 
-# Use docker compose (newer) or docker-compose (older)
-if docker compose version &> /dev/null; then
-    COMPOSE_CMD="docker compose"
-else
-    COMPOSE_CMD="docker-compose"
-fi
-
-# Ensure assets directory exists for frontend build
-if [ ! -d "karaoke/assets" ] || [ ! -f "karaoke/assets/fonts/.gitkeep" ]; then
-    echo "📁 Creating assets directory structure..."
-    mkdir -p karaoke/assets/fonts karaoke/assets/images
-    touch karaoke/assets/fonts/.gitkeep karaoke/assets/images/.gitkeep
-fi
-
-echo "📦 Building and starting services..."
-$COMPOSE_CMD up --build -d
-
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "✅ Services started successfully!"
-    echo ""
-    echo "🌐 Access the application:"
-    echo "   Frontend: http://localhost:8081"
-    echo "   Backend:  http://localhost:8082"
-    echo ""
-    echo "📊 View logs: $COMPOSE_CMD logs -f"
-    echo "🛑 Stop services: $COMPOSE_CMD down"
-    echo ""
-else
-    echo ""
-    echo "❌ Failed to start services. Check the logs:"
-    echo "   $COMPOSE_CMD logs"
-    exit 1
-fi
+# Start nginx in foreground
+exec nginx -g "daemon off;"
