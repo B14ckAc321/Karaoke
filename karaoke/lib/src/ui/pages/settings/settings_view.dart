@@ -22,6 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Color _cardColor = const Color(0xFF11182b);
   Color _textColor = Colors.white;
   Color _accentColor = Colors.yellow;
+  Color _buttonColor = Colors.blue;
   String _selectedFont = 'Roboto';
 
   @override
@@ -48,6 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _cardColor = _parseColor(themeService.cardColor);
     _textColor = _parseColor(themeService.textColor);
     _accentColor = _parseColor(themeService.accentColor);
+    _buttonColor = _parseColor(themeService.buttonColor);
     _selectedFont = themeService.fontFamily;
     _titleSizeCtrl.text = themeService.titleFontSize.toInt().toString();
     _scoreSizeCtrl.text = themeService.scoreFontSize.toInt().toString();
@@ -113,6 +115,7 @@ class _SettingsPageState extends State<SettingsPage> {
       'cardColor': _colorToHex(_cardColor),
       'textColor': _colorToHex(_textColor),
       'accentColor': _colorToHex(_accentColor),
+      'buttonColor': _colorToHex(_buttonColor),
       'fontFamily': _selectedFont,
       'titleFontSize': _titleSizeCtrl.text,
       'scoreFontSize': _scoreSizeCtrl.text,
@@ -135,6 +138,7 @@ class _SettingsPageState extends State<SettingsPage> {
             _colorPickerField('Card Color', _cardColor, (color) => setState(() => _cardColor = color)),
             _colorPickerField('Text Color', _textColor, (color) => setState(() => _textColor = color)),
             _colorPickerField('Accent Color', _accentColor, (color) => setState(() => _accentColor = color)),
+            _colorPickerField('Button Color', _buttonColor, (color) => setState(() => _buttonColor = color)),
           ]),
           const SizedBox(height: 16),
           _section('Fonts', [

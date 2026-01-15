@@ -103,6 +103,10 @@ class BackendService with ChangeNotifier {
   void controlTimer(String action, {int? durationSeconds}) {
     _socket?.emit('timer:control', {"action": action, if (durationSeconds != null) "durationSeconds": durationSeconds});
   }
+
+  Future<void> deleteSong(String id) async {
+    await http.delete(Uri.parse('$baseUrl/songs/$id'));
+  }
 }
 
 

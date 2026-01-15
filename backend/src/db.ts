@@ -36,7 +36,7 @@ db.prepare(`
 `).run();
 
 export function getAllSongs(): DbSong[] {
-  const rows = db.prepare('SELECT id, title, artist, score, youtube_url as youtubeUrl FROM songs ORDER BY title COLLATE NOCASE').all();
+  const rows = db.prepare('SELECT id, title, artist, score, youtube_url as youtubeUrl FROM songs ORDER BY score DESC, title COLLATE NOCASE').all();
   return rows as DbSong[];
 }
 

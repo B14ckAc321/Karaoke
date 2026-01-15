@@ -13,6 +13,11 @@ COPY lib ./lib
 RUN flutter create . --platforms web
 RUN flutter pub get
 COPY web ./web
+# Handle assets directory - ensure structure exists
+RUN mkdir -p assets/fonts assets/images
+# Copy assets directory
+# Note: If assets doesn't exist in build context, create it first:
+# mkdir -p assets/fonts assets/images && touch assets/fonts/.gitkeep assets/images/.gitkeep
 COPY assets ./assets
 
 # Build Flutter web app

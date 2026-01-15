@@ -24,6 +24,13 @@ else
     COMPOSE_CMD="docker-compose"
 fi
 
+# Ensure assets directory exists for frontend build
+if [ ! -d "karaoke/assets" ] || [ ! -f "karaoke/assets/fonts/.gitkeep" ]; then
+    echo "📁 Creating assets directory structure..."
+    mkdir -p karaoke/assets/fonts karaoke/assets/images
+    touch karaoke/assets/fonts/.gitkeep karaoke/assets/images/.gitkeep
+fi
+
 echo "📦 Building and starting services..."
 $COMPOSE_CMD up --build -d
 

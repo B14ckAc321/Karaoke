@@ -63,11 +63,23 @@ const defaultState: AppState = {
 };
 
 let state: AppState = structuredClone(defaultState);
-// initialize songs from DB
+// initialize songs from DB (already sorted by score DESC from DB)
 state.songs = getAllSongs().map((s: DbSong) => ({ id: s.id, title: s.title, artist: s.artist ?? undefined, score: s.score, youtubeUrl: s.youtubeUrl ?? undefined }));
 
+function sortSongsByScore() {
+  state.songs.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+  });
+}
+
 function broadcastState() {
+  sortSongsByScore();
   io.emit('state:update', state);
+}
+
+function broadcastThemeUpdate() {
+  io.emit('theme:update', getAllThemeSettings());
 }
 
 function recalcRemaining() {
@@ -186,6 +198,7 @@ app.post('/theme', (req, res) => {
   for (const [key, value] of Object.entries(settings)) {
     if (typeof value === 'string') setThemeSetting(key, value);
   }
+  broadcastThemeUpdate();
   res.json({ ok: true });
 });
 

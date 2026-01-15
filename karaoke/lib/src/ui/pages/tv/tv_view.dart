@@ -48,6 +48,7 @@ class _TvPageState extends State<TvPage> {
     final textColor = _parseColor(themeService.textColor);
     final accentColor = _parseColor(themeService.accentColor);
     final primaryColor = _parseColor(themeService.primaryColor);
+    final secondaryColor = _parseColor(themeService.secondaryColor);
     
     return Scaffold(
       backgroundColor: bgColor,
@@ -66,21 +67,34 @@ class _TvPageState extends State<TvPage> {
             const SizedBox(height: 16),
             Expanded(
               child: Container(
-                decoration: BoxDecoration(color: cardColor.withOpacity(0.9), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: primaryColor.withOpacity(0.3), blurRadius: 20)]),
+                decoration: BoxDecoration(
+                  color: cardColor.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(color: primaryColor.withValues(alpha: 0.3), blurRadius: 20),
+                    BoxShadow(color: secondaryColor.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5)),
+                  ],
+                ),
                 child: state == null
                     ? const Center(child: CircularProgressIndicator())
                     : ListView.separated(
                         itemCount: state.songs.length,
-                        separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withOpacity(0.3)),
+                        separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
                         itemBuilder: (context, i) {
                           final s = state.songs[i];
+                          // Alternate between primary and secondary colors for visual variety
+                          final itemColor = i % 2 == 0 ? primaryColor : secondaryColor;
                           return Container(
                             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: primaryColor.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                            decoration: BoxDecoration(
+                              color: itemColor.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: itemColor.withValues(alpha: 0.4), width: 1),
+                            ),
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                               title: Text(s.title, style: TextStyle(fontSize: themeService.titleFontSize, fontWeight: FontWeight.w600, color: textColor, fontFamily: themeService.fontFamily)),
-                              subtitle: s.artist != null ? Text(s.artist!, style: TextStyle(fontSize: themeService.titleFontSize * 0.65, color: textColor.withOpacity(0.8), fontFamily: themeService.fontFamily)) : null,
+                              subtitle: s.artist != null ? Text(s.artist!, style: TextStyle(fontSize: themeService.titleFontSize * 0.65, color: textColor.withValues(alpha: 0.8), fontFamily: themeService.fontFamily)) : null,
                               trailing: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 decoration: BoxDecoration(color: accentColor, borderRadius: BorderRadius.circular(20)),
@@ -97,10 +111,18 @@ class _TvPageState extends State<TvPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 decoration: BoxDecoration(
-                  color: cardColor.withOpacity(0.9),
+                  color: cardColor.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: accentColor, width: 3),
-                  boxShadow: [BoxShadow(color: accentColor.withOpacity(0.5), blurRadius: 30, spreadRadius: 5)],
+                  gradient: LinearGradient(
+                    colors: [primaryColor.withValues(alpha: 0.3), secondaryColor.withValues(alpha: 0.3)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(color: accentColor.withValues(alpha: 0.5), blurRadius: 30, spreadRadius: 5),
+                    BoxShadow(color: primaryColor.withValues(alpha: 0.3), blurRadius: 15, spreadRadius: 2),
+                  ],
                 ),
                 child: Text('$minutes:$seconds', style: TextStyle(fontSize: themeService.timerFontSize, fontWeight: FontWeight.w900, color: accentColor, fontFamily: themeService.fontFamily, shadows: [Shadow(color: primaryColor, blurRadius: 15)])),
               ),
