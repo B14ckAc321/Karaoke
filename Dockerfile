@@ -44,16 +44,20 @@ RUN flutter build web --release --no-tree-shake-icons --pwa-strategy=none
 # ============================================
 # Stage 3: Final Runtime Image
 # ============================================
-FROM nginx:1.27-alpine
+FROM node:20-alpine
 
-# Install Node.js and dependencies for backend
-RUN apk add --no-cache nodejs npm python3 make g++ libstdc++ wget dumb-init gettext
+# Install nginx and build dependencies (for rebuilding native modules if needed)
+RUN apk add --no-cache nginx python3 make g++ libstdc++ wget dumb-init gettext && \
+    mkdir -p /var/log/nginx /var/cache/nginx /etc/nginx/conf.d
 
 # Copy backend files
 WORKDIR /app/backend
 COPY --from=backend-deps /app/backend/node_modules ./node_modules
 COPY --from=backend-build /app/backend/dist ./dist
 COPY backend/package.json ./
+
+# Rebuild native modules for the runtime environment
+RUN npm rebuild better-sqlite3 --build-from-source
 
 # Copy frontend files
 COPY --from=frontend-build /app/frontend/build/web /usr/share/nginx/html
