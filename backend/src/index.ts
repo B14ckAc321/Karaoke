@@ -64,7 +64,14 @@ const defaultState: AppState = {
 
 let state: AppState = structuredClone(defaultState);
 // initialize songs from DB (already sorted by score DESC from DB)
-state.songs = getAllSongs().map((s: DbSong) => ({ id: s.id, title: s.title, artist: s.artist ?? undefined, score: s.score, youtubeUrl: s.youtubeUrl ?? undefined }));
+try {
+  const dbSongs = getAllSongs();
+  console.log(`Loaded ${dbSongs.length} songs from database`);
+  state.songs = dbSongs.map((s: DbSong) => ({ id: s.id, title: s.title, artist: s.artist ?? undefined, score: s.score, youtubeUrl: s.youtubeUrl ?? undefined }));
+} catch (error) {
+  console.error('Error loading songs from database:', error);
+  state.songs = [];
+}
 
 function sortSongsByScore() {
   state.songs.sort((a, b) => {

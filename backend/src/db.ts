@@ -11,12 +11,33 @@ export type DbSong = {
 };
 
 const dataDir = process.env.DATA_DIR || '/data';
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+if (!fs.existsSync(dataDir)) {
+  console.log(`Creating data directory: ${dataDir}`);
+  fs.mkdirSync(dataDir, { recursive: true });
+}
 const dbPath = path.join(dataDir, 'karaoke.db');
+console.log(`Database path: ${dbPath}`);
 
-export const db = new Database(dbPath);
+let db: Database;
+try {
+  db = new Database(dbPath);
+  console.log('Database initialized successfully');
+  
+  // Test write access
+  try {
+    db.pragma('journal_mode = WAL');
+    console.log('Database is writable');
+  } catch (writeError) {
+    console.error('Database write test failed:', writeError);
+    console.warn('WARNING: Database may not be writable. Check volume mount in Railway.');
+  }
+} catch (error) {
+  console.error('Failed to initialize database:', error);
+  console.error('Make sure /data volume is mounted in Railway settings!');
+  throw error;
+}
 
-db.pragma('journal_mode = WAL');
+export { db };
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS songs (

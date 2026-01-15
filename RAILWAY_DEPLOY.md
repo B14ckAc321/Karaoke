@@ -31,12 +31,18 @@ In Railway dashboard, go to your service → Variables tab, and add:
 - `NODE_ENV=production`
 - `DATA_DIR=/data`
 
-### 5. Add persistent storage
+### 5. Add persistent storage (IMPORTANT!)
+
+**This is required for the database to work!**
 
 1. Go to your service → Settings
-2. Add a volume mount:
-   - **Mount Path**: `/data`
-   - This will persist your SQLite database and uploaded images
+2. Click on **"Volumes"** tab
+3. Click **"+ New Volume"**
+4. Set the mount path to: `/data`
+5. Give it a name (e.g., `karaoke-data`)
+6. This will persist your SQLite database and uploaded images
+
+**Without this volume, your database will be lost on every deployment!**
 
 ### 6. Deploy
 
