@@ -323,14 +323,6 @@ class _DjPageState extends State<DjPage> {
                         ),
                         child: const Text('Set URL'),
                       ),
-                      ElevatedButton(
-                        onPressed: s.youtubeUrl != null ? () => launchUrlString(s.youtubeUrl!, mode: LaunchMode.externalApplication) : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: buttonColor,
-                          foregroundColor: _getTextColorForBackground(buttonColor),
-                        ),
-                        child: const Text('Open YouTube'),
-                      ),
                     ]),
                   ]),
                 );

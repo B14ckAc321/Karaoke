@@ -166,14 +166,6 @@ class _SettingsPageState extends State<SettingsPage> {
           _section('Images', [
             ElevatedButton(onPressed: () => _uploadImage('backgroundImageUrl'), child: const Text('Upload Background Image')),
             ElevatedButton(onPressed: () => _uploadImage('logoImageUrl'), child: const Text('Upload Logo Image')),
-            if (themeService.backgroundImageUrl != null) ...[
-              const SizedBox(height: 8),
-              Text('Background: ${themeService.backgroundImageUrl}'),
-            ],
-            if (themeService.logoImageUrl != null) ...[
-              const SizedBox(height: 8),
-              Text('Logo: ${themeService.logoImageUrl}'),
-            ],
           ]),
           const SizedBox(height: 24),
           ElevatedButton(onPressed: _saveSettings, child: const Text('Save All Settings')),
