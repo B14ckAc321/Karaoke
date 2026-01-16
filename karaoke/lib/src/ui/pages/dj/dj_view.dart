@@ -21,6 +21,7 @@ class _DjPageState extends State<DjPage> {
   final _titleCtrl = TextEditingController();
   final _artistCtrl = TextEditingController();
   final _durationCtrl = TextEditingController(text: '60');
+  SongModel? _winningSong; // Track winning song separately
 
   @override
   void initState() {
@@ -143,7 +144,7 @@ class _DjPageState extends State<DjPage> {
           ]),
         ),
         // Winning song card (bottom right) - shows when timer ends
-        if (timer != null && timer.remainingSeconds == 0 && state != null && state.songs.isNotEmpty)
+        if (_winningSong != null)
           Positioned(
             bottom: 16,
             right: 16,
@@ -159,17 +160,13 @@ class _DjPageState extends State<DjPage> {
     final buttonColor = _parseColor(themeService.buttonColor);
     final state = backend.state;
     final searchQuery = _titleCtrl.text.trim().toLowerCase();
-    SongModel? existingSong;
-    if (state != null && searchQuery.isNotEmpty) {
-      try {
-        existingSong = state.songs.firstWhere(
-          (s) => s.title.toLowerCase() == searchQuery,
-        );
-      } catch (_) {
-        existingSong = null;
-      }
-    }
-    final songExists = existingSong != null;
+    
+    // Filter songs by search query
+    final filteredSongs = state?.songs.where(
+      (s) => s.title.toLowerCase().contains(searchQuery) || 
+             (s.artist != null && s.artist!.toLowerCase().contains(searchQuery))
+    ).toList() ?? [];
+    final hasMatches = searchQuery.isNotEmpty && filteredSongs.isNotEmpty;
     
     return Container(
       padding: const EdgeInsets.all(12),
@@ -183,18 +180,19 @@ class _DjPageState extends State<DjPage> {
               controller: _titleCtrl,
               style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
               decoration: InputDecoration(
-                labelText: songExists ? 'Song found! Click to add points' : 'Song name',
-                labelStyle: TextStyle(color: songExists ? Colors.green : textColor.withValues(alpha: 0.7)),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: songExists ? Colors.green : textColor.withValues(alpha: 0.5))),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: songExists ? Colors.green : buttonColor)),
+                labelText: hasMatches ? '${filteredSongs.length} song(s) found' : 'Song name',
+                labelStyle: TextStyle(color: hasMatches ? Colors.green : textColor.withValues(alpha: 0.7)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: hasMatches ? Colors.green : textColor.withValues(alpha: 0.5))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: hasMatches ? Colors.green : buttonColor)),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          if (songExists) ...[
+          if (hasMatches && filteredSongs.length == 1) ...[
+            // Single match - show quick add buttons
             ElevatedButton(
               onPressed: () {
-                repo.updateScore(existingSong!.id, delta: 1);
+                repo.updateScore(filteredSongs.first.id, delta: 1);
                 _titleCtrl.clear();
                 _artistCtrl.clear();
               },
@@ -207,7 +205,7 @@ class _DjPageState extends State<DjPage> {
             const SizedBox(width: 4),
             ElevatedButton(
               onPressed: () {
-                repo.updateScore(existingSong!.id, delta: 5);
+                repo.updateScore(filteredSongs.first.id, delta: 5);
                 _titleCtrl.clear();
                 _artistCtrl.clear();
               },
@@ -232,10 +230,10 @@ class _DjPageState extends State<DjPage> {
               child: const Text('Add'),
             ),
         ]),
-        if (songExists) ...[
+        if (hasMatches && filteredSongs.length == 1) ...[
           const SizedBox(height: 8),
           Text(
-            'Current score: ${existingSong.score}',
+            'Current score: ${filteredSongs.first.score}',
             style: TextStyle(color: Colors.green, fontSize: 12, fontFamily: themeService.fontFamily),
           ),
         ],
@@ -252,6 +250,10 @@ class _DjPageState extends State<DjPage> {
     final buttonColor = _parseColor(themeService.buttonColor);
     final primaryColor = _parseColor(themeService.primaryColor);
     final secondaryColor = _parseColor(themeService.secondaryColor);
+    
+    // Filter out winning song from main list
+    final regularSongs = state?.songs.where((s) => s.id != _winningSong?.id).toList() ?? [];
+    
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
@@ -261,13 +263,29 @@ class _DjPageState extends State<DjPage> {
           BoxShadow(color: secondaryColor.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1),
         ],
       ),
-      child: state == null
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.separated(
-              itemCount: state.songs.length,
-              separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
-              itemBuilder: (context, i) {
-                final s = state.songs[i];
+      child: Builder(
+        builder: (context) {
+          final state = backend.state;
+          final searchQuery = _titleCtrl.text.trim().toLowerCase();
+          
+          // Filter out winning song and apply search filter
+          var filteredSongs = regularSongs;
+          if (searchQuery.isNotEmpty) {
+            filteredSongs = regularSongs.where(
+              (s) => s.title.toLowerCase().contains(searchQuery) || 
+                     (s.artist != null && s.artist!.toLowerCase().contains(searchQuery))
+            ).toList();
+          }
+          
+          if (state == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          return ListView.separated(
+            itemCount: filteredSongs.length,
+            separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
+            itemBuilder: (context, i) {
+              final s = filteredSongs[i];
                 return Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -384,26 +402,33 @@ class _DjPageState extends State<DjPage> {
                   ]),
                 );
               },
-            ),
+            );
+        },
+      ),
     );
   }
 
   Widget _winningSongCard() {
-    final state = backend.state;
-    if (state == null || state.songs.isEmpty) return const SizedBox.shrink();
+    if (_winningSong == null) return const SizedBox.shrink();
     
-    // Find song with highest score
-    final winningSong = state.songs.reduce((a, b) => a.score > b.score ? a : b);
+    final s = _winningSong!;
+    final cardColor = _parseColor(themeService.cardColor);
+    final textColor = _parseColor(themeService.textColor);
     final accentColor = _parseColor(themeService.accentColor);
+    final bgColor = _parseColor(themeService.backgroundColor);
+    final buttonColor = _parseColor(themeService.buttonColor);
+    final primaryColor = _parseColor(themeService.primaryColor);
     
     return Container(
-      width: 300,
-      padding: const EdgeInsets.all(16),
+      width: 350,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: accentColor,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accentColor, width: 3),
         boxShadow: [
           BoxShadow(color: accentColor.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
+          BoxShadow(color: primaryColor.withValues(alpha: 0.3), blurRadius: 8, spreadRadius: 1),
         ],
       ),
       child: Column(
@@ -411,58 +436,85 @@ class _DjPageState extends State<DjPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(children: [
-            Icon(Icons.emoji_events, color: _getTextColorForBackground(accentColor), size: 32),
+            Icon(Icons.emoji_events, color: accentColor, size: 24),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'WINNING SONG!',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: _getTextColorForBackground(accentColor),
-                  fontFamily: themeService.fontFamily,
-                ),
+            Text(
+              'WINNING SONG',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: accentColor,
+                fontFamily: themeService.fontFamily,
               ),
             ),
           ]),
-          const SizedBox(height: 12),
-          Text(
-            winningSong.title,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: _getTextColorForBackground(accentColor),
-              fontFamily: themeService.fontFamily,
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(s.title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: textColor, fontFamily: themeService.fontFamily)),
+              if (s.artist != null) Text(s.artist!, style: TextStyle(fontSize: 14, color: textColor.withValues(alpha: 0.7), fontFamily: themeService.fontFamily)),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: accentColor, borderRadius: BorderRadius.circular(12)),
+              child: Text('${s.score}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: bgColor, fontFamily: themeService.fontFamily)),
             ),
-          ),
-          if (winningSong.artist != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              winningSong.artist!,
-              style: TextStyle(
-                fontSize: 16,
-                color: _getTextColorForBackground(accentColor).withValues(alpha: 0.8),
-                fontFamily: themeService.fontFamily,
+          ]),
+          const SizedBox(height: 8),
+          Wrap(spacing: 12, runSpacing: 12, children: [
+            ElevatedButton(
+              onPressed: () => repo.updateScore(s.id, delta: -5),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: _getTextColorForBackground(buttonColor),
+              ),
+              child: const Text('-5'),
+            ),
+            ElevatedButton(
+              onPressed: () => repo.updateScore(s.id, delta: -1),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: _getTextColorForBackground(buttonColor),
+              ),
+              child: const Text('-1'),
+            ),
+            ElevatedButton(
+              onPressed: () => repo.updateScore(s.id, delta: 1),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: _getTextColorForBackground(buttonColor),
+              ),
+              child: const Text('+1'),
+            ),
+            ElevatedButton(
+              onPressed: () => repo.updateScore(s.id, delta: 5),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: _getTextColorForBackground(buttonColor),
+              ),
+              child: const Text('+5'),
+            ),
+            ElevatedButton(
+              onPressed: () => repo.updateScore(s.id, delta: 10),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: _getTextColorForBackground(buttonColor),
+              ),
+              child: const Text('+10'),
+            ),
+          ]),
+          if (s.youtubeUrl != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => launchUrlString(s.youtubeUrl!, mode: LaunchMode.externalApplication),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Open YouTube'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: textColor,
+                side: BorderSide(color: buttonColor),
               ),
             ),
           ],
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _getTextColorForBackground(accentColor).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'Score: ${winningSong.score}',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: _getTextColorForBackground(accentColor),
-                fontFamily: themeService.fontFamily,
-              ),
-            ),
-          ),
         ],
       ),
     );

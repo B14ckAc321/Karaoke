@@ -53,7 +53,6 @@ class _BarPageState extends State<BarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = backend.state;
     final bgColor = _parseColor(themeService.backgroundColor);
     final cardColor = _parseColor(themeService.cardColor);
     final textColor = _parseColor(themeService.textColor);
@@ -83,13 +82,28 @@ class _BarPageState extends State<BarPage> {
                   BoxShadow(color: secondaryColor.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1),
                 ],
               ),
-              child: state == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.separated(
-                      itemCount: state.songs.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
-                      itemBuilder: (context, i) {
-                        final s = state.songs[i];
+              child: Builder(
+                builder: (context) {
+                  final state = backend.state;
+                  final searchQuery = _titleCtrl.text.trim().toLowerCase();
+                  
+                  // Filter songs by search query if there's a search
+                  final displaySongs = searchQuery.isEmpty 
+                    ? (state?.songs ?? [])
+                    : (state?.songs.where(
+                        (s) => s.title.toLowerCase().contains(searchQuery) || 
+                               (s.artist != null && s.artist!.toLowerCase().contains(searchQuery))
+                      ).toList() ?? []);
+                  
+                  if (state == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  return ListView.separated(
+                    itemCount: displaySongs.length,
+                    separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
+                    itemBuilder: (context, i) {
+                      final s = displaySongs[i];
                         return Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -150,7 +164,9 @@ class _BarPageState extends State<BarPage> {
                           ]),
                         );
                       },
-                    ),
+                    );
+                },
+              ),
             ),
           ),
         ]),
@@ -169,17 +185,13 @@ class _BarPageState extends State<BarPage> {
           final buttonColor = _parseColor(themeService.buttonColor);
           final state = backend.state;
           final searchQuery = _titleCtrl.text.trim().toLowerCase();
-          SongModel? existingSong;
-          if (state != null && searchQuery.isNotEmpty) {
-            try {
-              existingSong = state.songs.firstWhere(
-                (s) => s.title.toLowerCase() == searchQuery,
-              );
-            } catch (_) {
-              existingSong = null;
-            }
-          }
-          final songExists = existingSong != null;
+          
+          // Filter songs by search query
+          final filteredSongs = state?.songs.where(
+            (s) => s.title.toLowerCase().contains(searchQuery) || 
+                   (s.artist != null && s.artist!.toLowerCase().contains(searchQuery))
+          ).toList() ?? [];
+          final hasMatches = searchQuery.isNotEmpty && filteredSongs.isNotEmpty;
           
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Add Song', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor, fontFamily: themeService.fontFamily)),
@@ -190,18 +202,19 @@ class _BarPageState extends State<BarPage> {
                   controller: _titleCtrl,
                   style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
                   decoration: InputDecoration(
-                    labelText: songExists ? 'Song found! Click to add points' : 'Song name',
-                    labelStyle: TextStyle(color: songExists ? Colors.green : textColor.withValues(alpha: 0.7)),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: songExists ? Colors.green : textColor.withValues(alpha: 0.5))),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: songExists ? Colors.green : buttonColor)),
+                    labelText: hasMatches ? '${filteredSongs.length} song(s) found' : 'Song name',
+                    labelStyle: TextStyle(color: hasMatches ? Colors.green : textColor.withValues(alpha: 0.7)),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: hasMatches ? Colors.green : textColor.withValues(alpha: 0.5))),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: hasMatches ? Colors.green : buttonColor)),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              if (songExists) ...[
+              if (hasMatches && filteredSongs.length == 1) ...[
+                // Single match - show quick add buttons
                 ElevatedButton(
                   onPressed: () {
-                    repo.updateScore(existingSong!.id, delta: 1);
+                    repo.updateScore(filteredSongs.first.id, delta: 1);
                     _titleCtrl.clear();
                   },
                   style: ElevatedButton.styleFrom(
@@ -213,7 +226,7 @@ class _BarPageState extends State<BarPage> {
                 const SizedBox(width: 4),
                 ElevatedButton(
                   onPressed: () {
-                    repo.updateScore(existingSong!.id, delta: 5);
+                    repo.updateScore(filteredSongs.first.id, delta: 5);
                     _titleCtrl.clear();
                   },
                   style: ElevatedButton.styleFrom(
@@ -237,10 +250,10 @@ class _BarPageState extends State<BarPage> {
                   child: const Text('Add'),
                 ),
             ]),
-            if (songExists) ...[
+            if (hasMatches && filteredSongs.length == 1) ...[
               const SizedBox(height: 8),
               Text(
-                'Current score: ${existingSong.score}',
+                'Current score: ${filteredSongs.first.score}',
                 style: TextStyle(color: Colors.green, fontSize: 12, fontFamily: themeService.fontFamily),
               ),
             ],

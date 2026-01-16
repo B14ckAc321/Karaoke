@@ -361,6 +361,7 @@ io.on('connection', (socket) => {
     if (typeof set === 'number') song.score = set;
     else if (typeof delta === 'number') song.score += delta;
     dbUpdateScore(id, song.score);
+    sortSongsByScore(); // Re-sort after score update
     broadcastState();
   });
 
@@ -400,4 +401,7 @@ setInterval(() => {
   if (state.timer.remainingSeconds !== before) broadcastState();
 }, 1000);
 
-
+// Periodic state broadcast to ensure all clients stay synced (especially when timer is stopped)
+setInterval(() => {
+  broadcastState();
+}, 5000);

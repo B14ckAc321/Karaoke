@@ -80,9 +80,6 @@ class _TvPageState extends State<TvPage> {
     return Scaffold(
       backgroundColor: bgColor,
       body: Stack(children: [
-        // Winning song dialog overlay
-        if (_showWinningDialog && _winningSong != null)
-          _winningSongDialog(),
         if (themeService.backgroundImageUrl != null)
           Positioned.fill(
             child: Image.network(themeService.backgroundImageUrl!, fit: BoxFit.cover, opacity: const AlwaysStoppedAnimation(0.3)),
