@@ -377,21 +377,30 @@ class _DjPageState extends State<DjPage> {
     final textColor = _parseColor(themeService.textColor);
     final accentColor = _parseColor(themeService.accentColor);
     
-    final totalSongs = state?.songs.length ?? 0;
-    final timerStatus = timer?.isRunning == true ? 'Running' : (timer?.remainingSeconds == 0 ? 'Ended' : 'Stopped');
-    final highestScore = state?.songs.isNotEmpty == true 
-      ? state!.songs.map((s) => s.score).reduce((a, b) => a > b ? a : b)
-      : 0;
+    // Find winning song (highest score)
+    SongModel? winningSong;
+    if (state != null && state.songs.isNotEmpty) {
+      winningSong = state.songs.reduce((a, b) => a.score > b.score ? a : b);
+    }
+    
+    final timerEnded = timer != null && timer.remainingSeconds == 0;
     
     return Container(
-      width: 200,
+      width: 250,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cardColor.withValues(alpha: 0.95),
+        color: timerEnded ? accentColor.withValues(alpha: 0.9) : cardColor.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
+        border: Border.all(
+          color: timerEnded ? accentColor : accentColor.withValues(alpha: 0.3), 
+          width: timerEnded ? 2 : 1
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 2),
+          BoxShadow(
+            color: timerEnded ? accentColor.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.2), 
+            blurRadius: timerEnded ? 15 : 8, 
+            spreadRadius: timerEnded ? 3 : 2
+          ),
         ],
       ),
       child: Column(
@@ -399,51 +408,80 @@ class _DjPageState extends State<DjPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Icon(Icons.info_outline, size: 16, color: accentColor),
-            const SizedBox(width: 4),
+            Icon(
+              timerEnded ? Icons.emoji_events : Icons.music_note, 
+              size: 18, 
+              color: timerEnded ? _getTextColorForBackground(accentColor) : accentColor
+            ),
+            const SizedBox(width: 6),
             Text(
-              'Info',
+              timerEnded ? 'WINNING SONG' : 'Current Leader',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: accentColor,
+                color: timerEnded ? _getTextColorForBackground(accentColor) : accentColor,
                 fontFamily: themeService.fontFamily,
               ),
             ),
           ]),
           const SizedBox(height: 8),
-          _infoRow('Songs', '$totalSongs', textColor),
-          const SizedBox(height: 4),
-          _infoRow('Timer', timerStatus, textColor),
-          const SizedBox(height: 4),
-          _infoRow('Top Score', '$highestScore', textColor),
+          if (winningSong != null) ...[
+            Text(
+              winningSong.title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: timerEnded ? _getTextColorForBackground(accentColor) : textColor,
+                fontFamily: themeService.fontFamily,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (winningSong.artist != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                winningSong.artist!,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: timerEnded 
+                    ? _getTextColorForBackground(accentColor).withValues(alpha: 0.8) 
+                    : textColor.withValues(alpha: 0.7),
+                  fontFamily: themeService.fontFamily,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: timerEnded 
+                  ? _getTextColorForBackground(accentColor).withValues(alpha: 0.2)
+                  : accentColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'Score: ${winningSong.score}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: timerEnded ? _getTextColorForBackground(accentColor) : accentColor,
+                  fontFamily: themeService.fontFamily,
+                ),
+              ),
+            ),
+          ] else
+            Text(
+              'No songs yet',
+              style: TextStyle(
+                fontSize: 12,
+                color: textColor.withValues(alpha: 0.6),
+                fontFamily: themeService.fontFamily,
+              ),
+            ),
         ],
       ),
-    );
-  }
-  
-  Widget _infoRow(String label, String value, Color textColor) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: textColor.withValues(alpha: 0.7),
-            fontFamily: themeService.fontFamily,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: textColor,
-            fontFamily: themeService.fontFamily,
-          ),
-        ),
-      ],
     );
   }
 
