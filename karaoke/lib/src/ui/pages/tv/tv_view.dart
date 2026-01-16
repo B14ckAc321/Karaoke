@@ -12,6 +12,8 @@ final class TvPage extends StatefulWidget {
 class _TvPageState extends State<TvPage> {
   final backend = BackendService.getInstance();
   final themeService = ThemeService.getInstance();
+  bool _showWinningDialog = false;
+  SongModel? _winningSong;
 
   @override
   void initState() {
@@ -27,7 +29,32 @@ class _TvPageState extends State<TvPage> {
     super.dispose();
   }
 
-  void _onUpdate() => setState(() {});
+  void _onUpdate() {
+    final state = backend.state;
+    final timer = state?.timer;
+    
+    // Check if timer just ended (remainingSeconds == 0 and was running)
+    if (timer != null && timer.remainingSeconds == 0 && state != null && state.songs.isNotEmpty) {
+      // Find winning song
+      final winningSong = state.songs.reduce((a, b) => a.score > b.score ? a : b);
+      if (!_showWinningDialog || _winningSong?.id != winningSong.id) {
+        setState(() {
+          _showWinningDialog = true;
+          _winningSong = winningSong;
+        });
+      }
+    } else if (timer != null && timer.remainingSeconds == timer.durationSeconds) {
+      // Timer was reset - hide dialog
+      if (_showWinningDialog) {
+        setState(() {
+          _showWinningDialog = false;
+          _winningSong = null;
+        });
+      }
+    } else {
+      setState(() {});
+    }
+  }
 
   Color _parseColor(String hex) {
     try {
@@ -53,6 +80,9 @@ class _TvPageState extends State<TvPage> {
     return Scaffold(
       backgroundColor: bgColor,
       body: Stack(children: [
+        // Winning song dialog overlay
+        if (_showWinningDialog && _winningSong != null)
+          _winningSongDialog(),
         if (themeService.backgroundImageUrl != null)
           Positioned.fill(
             child: Image.network(themeService.backgroundImageUrl!, fit: BoxFit.cover, opacity: const AlwaysStoppedAnimation(0.3)),
@@ -131,6 +161,100 @@ class _TvPageState extends State<TvPage> {
         ),
       ]),
     );
+  }
+
+  Widget _winningSongDialog() {
+    if (_winningSong == null) return const SizedBox.shrink();
+    
+    final bgColor = _parseColor(themeService.backgroundColor);
+    final accentColor = _parseColor(themeService.accentColor);
+    
+    return Container(
+      color: bgColor.withValues(alpha: 0.9),
+      child: Center(
+        child: Container(
+          width: 600,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: accentColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(color: accentColor.withValues(alpha: 0.5), blurRadius: 40, spreadRadius: 10),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.emoji_events, size: 80, color: _getTextColorForBackground(accentColor)),
+              const SizedBox(height: 24),
+              Text(
+                'WINNING SONG!',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: _getTextColorForBackground(accentColor),
+                  fontFamily: themeService.fontFamily,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                _winningSong!.title,
+                style: TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  color: _getTextColorForBackground(accentColor),
+                  fontFamily: themeService.fontFamily,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (_winningSong!.artist != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _winningSong!.artist!,
+                  style: TextStyle(
+                    fontSize: 28,
+                    color: _getTextColorForBackground(accentColor).withValues(alpha: 0.9),
+                    fontFamily: themeService.fontFamily,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _getTextColorForBackground(accentColor).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Score: ${_winningSong!.score}',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: _getTextColorForBackground(accentColor),
+                    fontFamily: themeService.fontFamily,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Reset timer to continue',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: _getTextColorForBackground(accentColor).withValues(alpha: 0.7),
+                  fontFamily: themeService.fontFamily,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getTextColorForBackground(Color backgroundColor) {
+    final luminance = backgroundColor.computeLuminance();
+    return luminance < 0.5 ? Colors.white : Colors.black;
   }
 }
 

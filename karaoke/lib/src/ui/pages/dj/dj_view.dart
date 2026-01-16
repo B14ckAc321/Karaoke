@@ -81,66 +81,75 @@ class _DjPageState extends State<DjPage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(children: [
-          Expanded(child: Column(children: [
-            _addSongForm(),
-            const SizedBox(height: 12),
-            Expanded(child: _songsList()),
-          ])),
-          const SizedBox(width: 16),
-          SizedBox(
-            width: 360,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text('$minutes:$seconds', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: accentColor, fontFamily: themeService.fontFamily)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _durationCtrl,
-                  style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Duration (sec)',
-                    labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor.withValues(alpha: 0.5))),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.buttonColor))),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  ElevatedButton(
-                    onPressed: () => repo.controlTimer('start', durationSeconds: int.tryParse(_durationCtrl.text)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _parseColor(themeService.buttonColor),
-                      foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+      body: Stack(children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(children: [
+            Expanded(child: Column(children: [
+              _addSongForm(),
+              const SizedBox(height: 12),
+              Expanded(child: _songsList()),
+            ])),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 360,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('$minutes:$seconds', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: accentColor, fontFamily: themeService.fontFamily)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _durationCtrl,
+                    style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Duration (sec)',
+                      labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor.withValues(alpha: 0.5))),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.buttonColor))),
                     ),
-                    child: const Text('Start'),
                   ),
-                  ElevatedButton(
-                    onPressed: () => repo.controlTimer('stop'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _parseColor(themeService.buttonColor),
-                      foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+                  const SizedBox(height: 12),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    ElevatedButton(
+                      onPressed: () => repo.controlTimer('start', durationSeconds: int.tryParse(_durationCtrl.text)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _parseColor(themeService.buttonColor),
+                        foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+                      ),
+                      child: const Text('Start'),
                     ),
-                    child: const Text('Stop'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => repo.controlTimer('reset'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _parseColor(themeService.buttonColor),
-                      foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+                    ElevatedButton(
+                      onPressed: () => repo.controlTimer('stop'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _parseColor(themeService.buttonColor),
+                        foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+                      ),
+                      child: const Text('Stop'),
                     ),
-                    child: const Text('Reset'),
-                  ),
+                    ElevatedButton(
+                      onPressed: () => repo.controlTimer('reset'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _parseColor(themeService.buttonColor),
+                        foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+                      ),
+                      child: const Text('Reset'),
+                    ),
+                  ]),
                 ]),
-              ]),
+              ),
             ),
+          ]),
+        ),
+        // Winning song card (bottom right) - shows when timer ends
+        if (timer != null && timer.remainingSeconds == 0 && state != null && state.songs.isNotEmpty)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: _winningSongCard(),
           ),
-        ]),
-      ),
+      ]),
     );
   }
 
@@ -148,6 +157,20 @@ class _DjPageState extends State<DjPage> {
     final cardColor = _parseColor(themeService.cardColor);
     final textColor = _parseColor(themeService.textColor);
     final buttonColor = _parseColor(themeService.buttonColor);
+    final state = backend.state;
+    final searchQuery = _titleCtrl.text.trim().toLowerCase();
+    SongModel? existingSong;
+    if (state != null && searchQuery.isNotEmpty) {
+      try {
+        existingSong = state.songs.firstWhere(
+          (s) => s.title.toLowerCase() == searchQuery,
+        );
+      } catch (_) {
+        existingSong = null;
+      }
+    }
+    final songExists = existingSong != null;
+    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
@@ -160,28 +183,62 @@ class _DjPageState extends State<DjPage> {
               controller: _titleCtrl,
               style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
               decoration: InputDecoration(
-                labelText: 'Song name',
-                labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor.withValues(alpha: 0.5))),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+                labelText: songExists ? 'Song found! Click to add points' : 'Song name',
+                labelStyle: TextStyle(color: songExists ? Colors.green : textColor.withValues(alpha: 0.7)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: songExists ? Colors.green : textColor.withValues(alpha: 0.5))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: songExists ? Colors.green : buttonColor)),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () async {
-              final title = _titleCtrl.text.trim();
-              if (title.isEmpty) return;
-              await repo.addSong(title: title);
-              _titleCtrl.clear(); _artistCtrl.clear();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _parseColor(themeService.buttonColor),
-              foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+          if (songExists) ...[
+            ElevatedButton(
+              onPressed: () {
+                repo.updateScore(existingSong!.id, delta: 1);
+                _titleCtrl.clear();
+                _artistCtrl.clear();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('+1'),
             ),
-            child: const Text('Add'),
-          ),
+            const SizedBox(width: 4),
+            ElevatedButton(
+              onPressed: () {
+                repo.updateScore(existingSong!.id, delta: 5);
+                _titleCtrl.clear();
+                _artistCtrl.clear();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('+5'),
+            ),
+          ] else
+            ElevatedButton(
+              onPressed: () async {
+                final title = _titleCtrl.text.trim();
+                if (title.isEmpty) return;
+                await repo.addSong(title: title);
+                _titleCtrl.clear(); _artistCtrl.clear();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _parseColor(themeService.buttonColor),
+                foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+              ),
+              child: const Text('Add'),
+            ),
         ]),
+        if (songExists) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Current score: ${existingSong.score}',
+            style: TextStyle(color: Colors.green, fontSize: 12, fontFamily: themeService.fontFamily),
+          ),
+        ],
       ]),
     );
   }
@@ -328,6 +385,86 @@ class _DjPageState extends State<DjPage> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _winningSongCard() {
+    final state = backend.state;
+    if (state == null || state.songs.isEmpty) return const SizedBox.shrink();
+    
+    // Find song with highest score
+    final winningSong = state.songs.reduce((a, b) => a.score > b.score ? a : b);
+    final accentColor = _parseColor(themeService.accentColor);
+    
+    return Container(
+      width: 300,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: accentColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: accentColor.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            Icon(Icons.emoji_events, color: _getTextColorForBackground(accentColor), size: 32),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'WINNING SONG!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: _getTextColorForBackground(accentColor),
+                  fontFamily: themeService.fontFamily,
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Text(
+            winningSong.title,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: _getTextColorForBackground(accentColor),
+              fontFamily: themeService.fontFamily,
+            ),
+          ),
+          if (winningSong.artist != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              winningSong.artist!,
+              style: TextStyle(
+                fontSize: 16,
+                color: _getTextColorForBackground(accentColor).withValues(alpha: 0.8),
+                fontFamily: themeService.fontFamily,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _getTextColorForBackground(accentColor).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Score: ${winningSong.score}',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: _getTextColorForBackground(accentColor),
+                fontFamily: themeService.fontFamily,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

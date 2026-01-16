@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:karaoke/src/navigation/routes.dart';
 import 'package:karaoke/src/repositories/song_repository.dart';
 import 'package:karaoke/src/services/backend_service.dart';
 import 'package:karaoke/src/services/theme_service.dart';
@@ -69,13 +67,6 @@ class _BarPageState extends State<BarPage> {
         title: Text('Bar', style: TextStyle(fontFamily: themeService.fontFamily)),
         backgroundColor: cardColor,
         foregroundColor: textColor,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => context.go(RouteNames.settings),
-            tooltip: 'Settings',
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -172,34 +163,90 @@ class _BarPageState extends State<BarPage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        Expanded(
-          child: TextField(
-            controller: _titleCtrl,
-            style: TextStyle(color: _parseColor(themeService.textColor), fontFamily: themeService.fontFamily),
-            decoration: InputDecoration(
-              labelText: 'Song name',
-              labelStyle: TextStyle(color: _parseColor(themeService.textColor).withValues(alpha: 0.7)),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.textColor).withValues(alpha: 0.5))),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.buttonColor))),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        ElevatedButton(
-          onPressed: () async {
-            final title = _titleCtrl.text.trim();
-            if (title.isEmpty) return;
-            await repo.addSong(title: title);
-            _titleCtrl.clear();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _parseColor(themeService.buttonColor),
-            foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
-          ),
-          child: const Text('Add'),
-        ),
-      ]),
+      child: Builder(
+        builder: (context) {
+          final textColor = _parseColor(themeService.textColor);
+          final buttonColor = _parseColor(themeService.buttonColor);
+          final state = backend.state;
+          final searchQuery = _titleCtrl.text.trim().toLowerCase();
+          SongModel? existingSong;
+          if (state != null && searchQuery.isNotEmpty) {
+            try {
+              existingSong = state.songs.firstWhere(
+                (s) => s.title.toLowerCase() == searchQuery,
+              );
+            } catch (_) {
+              existingSong = null;
+            }
+          }
+          final songExists = existingSong != null;
+          
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Add Song', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor, fontFamily: themeService.fontFamily)),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _titleCtrl,
+                  style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
+                  decoration: InputDecoration(
+                    labelText: songExists ? 'Song found! Click to add points' : 'Song name',
+                    labelStyle: TextStyle(color: songExists ? Colors.green : textColor.withValues(alpha: 0.7)),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: songExists ? Colors.green : textColor.withValues(alpha: 0.5))),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: songExists ? Colors.green : buttonColor)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (songExists) ...[
+                ElevatedButton(
+                  onPressed: () {
+                    repo.updateScore(existingSong!.id, delta: 1);
+                    _titleCtrl.clear();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('+1'),
+                ),
+                const SizedBox(width: 4),
+                ElevatedButton(
+                  onPressed: () {
+                    repo.updateScore(existingSong!.id, delta: 5);
+                    _titleCtrl.clear();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('+5'),
+                ),
+              ] else
+                ElevatedButton(
+                  onPressed: () async {
+                    final title = _titleCtrl.text.trim();
+                    if (title.isEmpty) return;
+                    await repo.addSong(title: title);
+                    _titleCtrl.clear();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: buttonColor,
+                    foregroundColor: _getTextColorForBackground(buttonColor),
+                  ),
+                  child: const Text('Add'),
+                ),
+            ]),
+            if (songExists) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Current score: ${existingSong.score}',
+                style: TextStyle(color: Colors.green, fontSize: 12, fontFamily: themeService.fontFamily),
+              ),
+            ],
+          ]);
+        },
+      ),
     );
   }
 }
