@@ -33,7 +33,7 @@ class _TvPageState extends State<TvPage> {
     final state = backend.state;
     final timer = state?.timer;
     
-    // Check if timer just ended (remainingSeconds == 0 and was running)
+    // Check if timer just ended (remainingSeconds == 0)
     if (timer != null && timer.remainingSeconds == 0 && state != null && state.songs.isNotEmpty) {
       // Find winning song
       final winningSong = state.songs.reduce((a, b) => a.score > b.score ? a : b);
@@ -43,7 +43,7 @@ class _TvPageState extends State<TvPage> {
           _winningSong = winningSong;
         });
       }
-    } else if (timer != null && timer.remainingSeconds == timer.durationSeconds) {
+    } else if (timer != null && timer.remainingSeconds == timer.durationSeconds && timer.remainingSeconds > 0) {
       // Timer was reset - hide dialog
       if (_showWinningDialog) {
         setState(() {
@@ -51,9 +51,8 @@ class _TvPageState extends State<TvPage> {
           _winningSong = null;
         });
       }
-    } else {
-      setState(() {});
     }
+    setState(() {});
   }
 
   Color _parseColor(String hex) {
@@ -156,6 +155,9 @@ class _TvPageState extends State<TvPage> {
             ),
           ]),
         ),
+        // Winning song dialog overlay - on top of everything
+        if (_showWinningDialog && _winningSong != null)
+          _winningSongDialog(),
       ]),
     );
   }

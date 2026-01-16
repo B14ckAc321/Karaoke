@@ -158,15 +158,6 @@ class _DjPageState extends State<DjPage> {
     final cardColor = _parseColor(themeService.cardColor);
     final textColor = _parseColor(themeService.textColor);
     final buttonColor = _parseColor(themeService.buttonColor);
-    final state = backend.state;
-    final searchQuery = _titleCtrl.text.trim().toLowerCase();
-    
-    // Filter songs by search query
-    final filteredSongs = state?.songs.where(
-      (s) => s.title.toLowerCase().contains(searchQuery) || 
-             (s.artist != null && s.artist!.toLowerCase().contains(searchQuery))
-    ).toList() ?? [];
-    final hasMatches = searchQuery.isNotEmpty && filteredSongs.isNotEmpty;
     
     return Container(
       padding: const EdgeInsets.all(12),
@@ -180,63 +171,28 @@ class _DjPageState extends State<DjPage> {
               controller: _titleCtrl,
               style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
               decoration: InputDecoration(
-                labelText: hasMatches ? '${filteredSongs.length} song(s) found' : 'Song name',
-                labelStyle: TextStyle(color: hasMatches ? Colors.green : textColor.withValues(alpha: 0.7)),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: hasMatches ? Colors.green : textColor.withValues(alpha: 0.5))),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: hasMatches ? Colors.green : buttonColor)),
+                labelText: 'Song name',
+                labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor.withValues(alpha: 0.5))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          if (hasMatches && filteredSongs.length == 1) ...[
-            // Single match - show quick add buttons
-            ElevatedButton(
-              onPressed: () {
-                repo.updateScore(filteredSongs.first.id, delta: 1);
-                _titleCtrl.clear();
-                _artistCtrl.clear();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('+1'),
+          ElevatedButton(
+            onPressed: () async {
+              final title = _titleCtrl.text.trim();
+              if (title.isEmpty) return;
+              await repo.addSong(title: title);
+              _titleCtrl.clear(); _artistCtrl.clear();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _parseColor(themeService.buttonColor),
+              foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
             ),
-            const SizedBox(width: 4),
-            ElevatedButton(
-              onPressed: () {
-                repo.updateScore(filteredSongs.first.id, delta: 5);
-                _titleCtrl.clear();
-                _artistCtrl.clear();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('+5'),
-            ),
-          ] else
-            ElevatedButton(
-              onPressed: () async {
-                final title = _titleCtrl.text.trim();
-                if (title.isEmpty) return;
-                await repo.addSong(title: title);
-                _titleCtrl.clear(); _artistCtrl.clear();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _parseColor(themeService.buttonColor),
-                foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
-              ),
-              child: const Text('Add'),
-            ),
-        ]),
-        if (hasMatches && filteredSongs.length == 1) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Current score: ${filteredSongs.first.score}',
-            style: TextStyle(color: Colors.green, fontSize: 12, fontFamily: themeService.fontFamily),
+            child: const Text('Add'),
           ),
-        ],
+        ]),
       ]),
     );
   }
