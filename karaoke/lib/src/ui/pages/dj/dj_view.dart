@@ -143,10 +143,16 @@ class _DjPageState extends State<DjPage> {
             ),
           ]),
         ),
-        // Winning song card (bottom right) - shows when timer ends
+        // Info panel (bottom right)
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: _infoPanel(),
+        ),
+        // Winning song card (bottom right, above info panel) - shows when timer ends
         if (_winningSong != null)
           Positioned(
-            bottom: 16,
+            bottom: 140, // Position above info panel (info panel is ~120px + 20px spacing)
             right: 16,
             child: _winningSongCard(),
           ),
@@ -361,6 +367,83 @@ class _DjPageState extends State<DjPage> {
             );
         },
       ),
+    );
+  }
+
+  Widget _infoPanel() {
+    final state = backend.state;
+    final timer = state?.timer;
+    final cardColor = _parseColor(themeService.cardColor);
+    final textColor = _parseColor(themeService.textColor);
+    final accentColor = _parseColor(themeService.accentColor);
+    
+    final totalSongs = state?.songs.length ?? 0;
+    final timerStatus = timer?.isRunning == true ? 'Running' : (timer?.remainingSeconds == 0 ? 'Ended' : 'Stopped');
+    final highestScore = state?.songs.isNotEmpty == true 
+      ? state!.songs.map((s) => s.score).reduce((a, b) => a > b ? a : b)
+      : 0;
+    
+    return Container(
+      width: 200,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 2),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.info_outline, size: 16, color: accentColor),
+            const SizedBox(width: 4),
+            Text(
+              'Info',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: accentColor,
+                fontFamily: themeService.fontFamily,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          _infoRow('Songs', '$totalSongs', textColor),
+          const SizedBox(height: 4),
+          _infoRow('Timer', timerStatus, textColor),
+          const SizedBox(height: 4),
+          _infoRow('Top Score', '$highestScore', textColor),
+        ],
+      ),
+    );
+  }
+  
+  Widget _infoRow(String label, String value, Color textColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: textColor.withValues(alpha: 0.7),
+            fontFamily: themeService.fontFamily,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+            fontFamily: themeService.fontFamily,
+          ),
+        ),
+      ],
     );
   }
 
