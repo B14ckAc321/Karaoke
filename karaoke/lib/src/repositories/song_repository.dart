@@ -14,6 +14,8 @@ final class SongRepository {
 
   Future<void> setYoutubeUrl({required String id, String? youtubeUrl}) => _backend.setYoutubeUrl(id: id, youtubeUrl: youtubeUrl);
 
+  Future<void> updateSong({required String id, String? title, String? artist}) => _backend.updateSong(id: id, title: title, artist: artist);
+
   void updateScore(String id, {int? delta, int? set}) => _backend.updateScore(id, delta: delta, set: set);
   void controlTimer(String action, {int? durationSeconds}) => _backend.controlTimer(action, durationSeconds: durationSeconds);
   Future<void> deleteSong(String id) => _backend.deleteSong(id);

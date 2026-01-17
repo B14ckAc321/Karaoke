@@ -29,6 +29,8 @@ class ThemeService with ChangeNotifier {
   double get timerFontSize => double.tryParse(_settings['timerFontSize'] ?? '64') ?? 64;
   String? get backgroundImageUrl => _settings['backgroundImageUrl'];
   String? get logoImageUrl => _settings['logoImageUrl'];
+  
+  String? getThemeSetting(String key) => _settings[key];
 
   Future<void> init() async {
     // Use same URL logic as BackendService

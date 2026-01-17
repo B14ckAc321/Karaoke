@@ -15,6 +15,9 @@ class _SettingsPageState extends State<SettingsPage> {
   final _titleSizeCtrl = TextEditingController();
   final _scoreSizeCtrl = TextEditingController();
   final _timerSizeCtrl = TextEditingController();
+  final _customText1Ctrl = TextEditingController();
+  final _customText2Ctrl = TextEditingController();
+  final _customText3Ctrl = TextEditingController();
 
   Color _primaryColor = Colors.pink;
   Color _secondaryColor = Colors.deepPurple;
@@ -54,6 +57,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _titleSizeCtrl.text = themeService.titleFontSize.toInt().toString();
     _scoreSizeCtrl.text = themeService.scoreFontSize.toInt().toString();
     _timerSizeCtrl.text = themeService.timerFontSize.toInt().toString();
+    _customText1Ctrl.text = themeService.getThemeSetting('customText1') ?? '';
+    _customText2Ctrl.text = themeService.getThemeSetting('customText2') ?? '';
+    _customText3Ctrl.text = themeService.getThemeSetting('customText3') ?? '';
   }
 
   // Calculate if a color is dark (returns true) or light (returns false)
@@ -95,8 +101,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String _colorToHex(Color color) {
-    final argb = color.value; // Using value for hex conversion
-    return '#${argb.toRadixString(16).substring(2).toUpperCase()}';
+    final r = ((color.r * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
+    final g = ((color.g * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
+    final b = ((color.b * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
+    return '#$r$g$b'.toUpperCase();
   }
 
   Future<void> _showColorPicker(String label, Color currentColor, void Function(Color) onColorChanged) async {
@@ -145,6 +153,9 @@ class _SettingsPageState extends State<SettingsPage> {
       'titleFontSize': _titleSizeCtrl.text,
       'scoreFontSize': _scoreSizeCtrl.text,
       'timerFontSize': _timerSizeCtrl.text,
+      'customText1': _customText1Ctrl.text,
+      'customText2': _customText2Ctrl.text,
+      'customText3': _customText3Ctrl.text,
     });
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings saved!')));
   }
@@ -224,14 +235,84 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               child: const Text('Upload Background Image'),
             ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () => _uploadImage('logoImageUrl'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: buttonColor,
-                foregroundColor: buttonTextColor,
-              ),
-              child: const Text('Upload Logo Image'),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _uploadImage('logoImageUrl'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: buttonColor,
+                          foregroundColor: buttonTextColor,
+                        ),
+                        child: const Text('Upload Logo Image'),
+                      ),
+                      if (themeService.logoImageUrl != null) ...[
+                        const SizedBox(height: 8),
+                        Image.network(
+                          themeService.logoImageUrl!,
+                          height: 80,
+                          fit: BoxFit.contain,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Custom Text Fields',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: cardTextColor,
+                          fontFamily: themeService.fontFamily,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _customText1Ctrl,
+                        decoration: InputDecoration(
+                          labelText: 'Custom Text 1',
+                          labelStyle: TextStyle(color: cardTextColor),
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: cardTextColor.withValues(alpha: 0.5))),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+                        ),
+                        style: TextStyle(color: cardTextColor),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _customText2Ctrl,
+                        decoration: InputDecoration(
+                          labelText: 'Custom Text 2',
+                          labelStyle: TextStyle(color: cardTextColor),
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: cardTextColor.withValues(alpha: 0.5))),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+                        ),
+                        style: TextStyle(color: cardTextColor),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _customText3Ctrl,
+                        decoration: InputDecoration(
+                          labelText: 'Custom Text 3',
+                          labelStyle: TextStyle(color: cardTextColor),
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: cardTextColor.withValues(alpha: 0.5))),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+                        ),
+                        style: TextStyle(color: cardTextColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ]),
           const SizedBox(height: 24),

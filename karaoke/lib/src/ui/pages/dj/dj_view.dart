@@ -253,7 +253,55 @@ class _DjPageState extends State<DjPage> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(s.title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: textColor, fontFamily: themeService.fontFamily)),
+                        Row(children: [
+                          Expanded(
+                            child: Text(s.title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: textColor, fontFamily: themeService.fontFamily)),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.edit, size: 18, color: textColor.withValues(alpha: 0.7)),
+                            onPressed: () async {
+                              final titleCtrl = TextEditingController(text: s.title);
+                              final artistCtrl = TextEditingController(text: s.artist ?? '');
+                              final result = await showDialog<Map<String, String>?>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Edit Song'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextField(
+                                        controller: titleCtrl,
+                                        decoration: const InputDecoration(labelText: 'Title'),
+                                        autofocus: true,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: artistCtrl,
+                                        decoration: const InputDecoration(labelText: 'Artist (optional)'),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, {
+                                        'title': titleCtrl.text.trim(),
+                                        'artist': artistCtrl.text.trim(),
+                                      }),
+                                      child: const Text('Save'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (result != null && result['title']?.isNotEmpty == true) {
+                                await repo.updateSong(id: s.id, title: result['title'], artist: result['artist']?.isEmpty == true ? null : result['artist']);
+                              }
+                            },
+                            tooltip: 'Edit title',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ]),
                         if (s.artist != null) Text(s.artist!, style: TextStyle(fontSize: 14, color: textColor.withValues(alpha: 0.7), fontFamily: themeService.fontFamily)),
                       ])),
                       Container(

@@ -131,6 +131,37 @@ class BackendService with ChangeNotifier {
     _socket!.on('state:update', (data) {
       if (data is Map) _applyState(jsonDecode(jsonEncode(data)) as Map<String, dynamic>);
     });
+    
+    // Listen for immediate score updates (without reordering)
+    _socket!.on('score:updated', (data) {
+      if (data is Map) {
+        final id = data['id'] as String?;
+        final score = data['score'] as num?;
+        if (id != null && score != null && _state != null) {
+          // Update score immediately without reordering
+          final songIndex = _state!.songs.indexWhere((s) => s.id == id);
+          if (songIndex >= 0) {
+            final updatedSong = SongModel(
+              id: _state!.songs[songIndex].id,
+              title: _state!.songs[songIndex].title,
+              artist: _state!.songs[songIndex].artist,
+              score: score.toInt(),
+              youtubeUrl: _state!.songs[songIndex].youtubeUrl,
+            );
+            _state = AppData(
+              songs: [
+                ..._state!.songs.sublist(0, songIndex),
+                updatedSong,
+                ..._state!.songs.sublist(songIndex + 1),
+              ],
+              timer: _state!.timer,
+            );
+            notifyListeners();
+          }
+        }
+      }
+    });
+    
     _socket!.on('connect', (_) {
       debugPrint('Socket.IO connected');
       _updateConnectionStatus('Connected', true);
@@ -188,6 +219,13 @@ class BackendService with ChangeNotifier {
 
   Future<void> setYoutubeUrl({required String id, String? youtubeUrl}) async {
     await http.post(Uri.parse('$baseUrl/songs/$id/url'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'youtubeUrl': youtubeUrl}));
+  }
+
+  Future<void> updateSong({required String id, String? title, String? artist}) async {
+    await http.post(Uri.parse('$baseUrl/songs/$id/update'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({
+      if (title != null) 'title': title,
+      if (artist != null) 'artist': artist,
+    }));
   }
 
   void updateScore(String id, {int? delta, int? set}) {
