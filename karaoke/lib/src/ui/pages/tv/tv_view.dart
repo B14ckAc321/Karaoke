@@ -86,10 +86,57 @@ class _TvPageState extends State<TvPage> {
         Padding(
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (themeService.logoImageUrl != null)
-              Image.network(themeService.logoImageUrl!, height: 120, fit: BoxFit.contain)
-            else
-              Text('Karaoke', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: themeService.fontFamily, shadows: [Shadow(color: accentColor, blurRadius: 10)])),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (themeService.logoImageUrl != null)
+                  Image.network(themeService.logoImageUrl!, height: 120, fit: BoxFit.contain)
+                else
+                  Text('Karaoke', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: themeService.fontFamily, shadows: [Shadow(color: accentColor, blurRadius: 10)])),
+                const SizedBox(width: 24),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (themeService.getThemeSetting('customText1')?.isNotEmpty == true)
+                      Text(
+                        themeService.getThemeSetting('customText1')!,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: accentColor,
+                          fontFamily: themeService.fontFamily,
+                          shadows: [Shadow(color: primaryColor, blurRadius: 8)],
+                        ),
+                      ),
+                    if (themeService.getThemeSetting('customText2')?.isNotEmpty == true) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        themeService.getThemeSetting('customText2')!,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                          fontFamily: themeService.fontFamily,
+                        ),
+                      ),
+                    ],
+                    if (themeService.getThemeSetting('customText3')?.isNotEmpty == true) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        themeService.getThemeSetting('customText3')!,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: textColor.withValues(alpha: 0.8),
+                          fontFamily: themeService.fontFamily,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             Expanded(
               child: Container(
