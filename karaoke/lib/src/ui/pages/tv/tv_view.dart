@@ -86,65 +86,71 @@ class _TvPageState extends State<TvPage> {
         Padding(
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (themeService.logoImageUrl != null)
-                  Image.network(themeService.logoImageUrl!, height: 120, fit: BoxFit.contain)
-                else
-                  Text('Karaoke', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: themeService.fontFamily, shadows: [Shadow(color: accentColor, blurRadius: 10)])),
-                if (themeService.getThemeSetting('customText1')?.isNotEmpty == true ||
-                    themeService.getThemeSetting('customText2')?.isNotEmpty == true ||
-                    themeService.getThemeSetting('customText3')?.isNotEmpty == true) ...[
-                  const SizedBox(width: 24),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (themeService.getThemeSetting('customText1')?.isNotEmpty == true)
-                        Text(
-                          themeService.getThemeSetting('customText1')!,
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: accentColor,
-                            fontFamily: themeService.fontFamily,
-                            shadows: [
-                              Shadow(color: primaryColor, blurRadius: 12),
-                              Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8),
-                            ],
-                          ),
-                        ),
-                      if (themeService.getThemeSetting('customText2')?.isNotEmpty == true) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          themeService.getThemeSetting('customText2')!,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
-                            fontFamily: themeService.fontFamily,
-                            shadows: [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6)],
-                          ),
-                        ),
-                      ],
-                      if (themeService.getThemeSetting('customText3')?.isNotEmpty == true) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          themeService.getThemeSetting('customText3')!,
-                          style: TextStyle(
-                            fontSize: 20,
-                            color: textColor.withValues(alpha: 0.95),
-                            fontFamily: themeService.fontFamily,
-                            shadows: [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4)],
-                          ),
-                        ),
-                      ],
+            Builder(
+              builder: (context) {
+                final customText1 = themeService.getThemeSetting('customText1') ?? '';
+                final customText2 = themeService.getThemeSetting('customText2') ?? '';
+                final customText3 = themeService.getThemeSetting('customText3') ?? '';
+                
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (themeService.logoImageUrl != null)
+                      Image.network(themeService.logoImageUrl!, height: 120, fit: BoxFit.contain)
+                    else
+                      Text('Karaoke', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: themeService.fontFamily, shadows: [Shadow(color: accentColor, blurRadius: 10)])),
+                    if (customText1.isNotEmpty || customText2.isNotEmpty || customText3.isNotEmpty) ...[
+                      const SizedBox(width: 24),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (customText1.isNotEmpty)
+                            Text(
+                              customText1,
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: accentColor,
+                                fontFamily: themeService.fontFamily,
+                                shadows: [
+                                  Shadow(color: primaryColor, blurRadius: 12),
+                                  Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8),
+                                ],
+                              ),
+                            ),
+                          if (customText2.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              customText2,
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                                fontFamily: themeService.fontFamily,
+                                shadows: [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6)],
+                              ),
+                            ),
+                          ],
+                          if (customText3.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              customText3,
+                              style: TextStyle(
+                                fontSize: 20,
+                                color: textColor.withValues(alpha: 0.95),
+                                fontFamily: themeService.fontFamily,
+                                shadows: [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4)],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
-                  ),
-                ],
-              ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             Expanded(
