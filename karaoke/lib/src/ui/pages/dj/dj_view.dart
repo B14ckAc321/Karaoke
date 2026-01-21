@@ -20,7 +20,7 @@ class _DjPageState extends State<DjPage> {
 
   final _titleCtrl = TextEditingController();
   final _artistCtrl = TextEditingController();
-  final _durationCtrl = TextEditingController(text: '60');
+  final _durationCtrl = TextEditingController(text: '1'); // Duration in minutes
   SongModel? _winningSong; // Track winning song separately
 
   @override
@@ -105,7 +105,7 @@ class _DjPageState extends State<DjPage> {
                     style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'Duration (sec)',
+                      labelText: 'Duration (minutes)',
                       labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
                       enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor.withValues(alpha: 0.5))),
                       focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.buttonColor))),
@@ -114,7 +114,10 @@ class _DjPageState extends State<DjPage> {
                   const SizedBox(height: 12),
                   Wrap(spacing: 8, runSpacing: 8, children: [
                     ElevatedButton(
-                      onPressed: () => repo.controlTimer('start', durationSeconds: int.tryParse(_durationCtrl.text)),
+                      onPressed: () {
+                        final minutes = int.tryParse(_durationCtrl.text) ?? 1;
+                        repo.controlTimer('start', durationSeconds: minutes * 60); // Convert minutes to seconds
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _parseColor(themeService.buttonColor),
                         foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
