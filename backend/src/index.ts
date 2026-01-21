@@ -6,7 +6,7 @@ import { Server } from 'socket.io';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
-import { getAllSongs, insertSong, deleteSong as dbDeleteSong, updateScore as dbUpdateScore, updateYoutubeUrl, DbSong, getThemeSetting, setThemeSetting, getAllThemeSettings } from './db';
+import { getAllSongs, insertSong, deleteSong as dbDeleteSong, updateScore as dbUpdateScore, updateYoutubeUrl, updateSongTitle, DbSong, getThemeSetting, setThemeSetting, getAllThemeSettings } from './db';
 import crypto from 'crypto';
 
 type Song = {
@@ -35,7 +35,8 @@ const io = new Server(server, {
   cors: { origin: '*'}
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increase limit for base64 images
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cors());
 app.use(helmet({
   crossOriginResourcePolicy: false,
@@ -100,6 +101,23 @@ function broadcastState() {
   sortSongsByScore();
   console.log(`Broadcasting state update: ${state.songs.length} songs, ${io.sockets.sockets.size} connected clients`);
   io.emit('state:update', state);
+}
+
+// Debounce timer for score updates - delays list reordering by 2.5 seconds
+let scoreUpdateDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const SCORE_UPDATE_DELAY_MS = 2500; // 2.5 seconds
+
+function debouncedBroadcastState() {
+  // Clear existing timer if any
+  if (scoreUpdateDebounceTimer) {
+    clearTimeout(scoreUpdateDebounceTimer);
+  }
+  
+  // Set new timer to broadcast after delay
+  scoreUpdateDebounceTimer = setTimeout(() => {
+    broadcastState();
+    scoreUpdateDebounceTimer = null;
+  }, SCORE_UPDATE_DELAY_MS);
 }
 
 function broadcastThemeUpdate() {
@@ -206,7 +224,8 @@ app.post('/songs/:id/score', (req, res) => {
   else if (typeof delta === 'number') song.score += delta;
   else return res.status(400).json({ error: 'delta or set required' });
   dbUpdateScore(id, song.score);
-  broadcastState();
+  // Use debounced broadcast for REST endpoint too
+  debouncedBroadcastState();
   res.json({ ok: true, score: song.score });
 });
 
@@ -217,6 +236,22 @@ app.post('/songs/:id/url', (req, res) => {
   if (!song) return res.status(404).json({ error: 'not found' });
   song.youtubeUrl = typeof youtubeUrl === 'string' && youtubeUrl.length > 0 ? youtubeUrl : undefined;
   updateYoutubeUrl(id, song.youtubeUrl ?? null);
+  broadcastState();
+  res.json({ ok: true });
+});
+
+app.post('/songs/:id/update', (req, res) => {
+  const { id } = req.params;
+  const { title, artist } = req.body ?? {};
+  const song = state.songs.find(s => s.id === id);
+  if (!song) return res.status(404).json({ error: 'not found' });
+  if (typeof title === 'string' && title.length > 0) {
+    song.title = title;
+  }
+  if (artist !== undefined) {
+    song.artist = typeof artist === 'string' && artist.length > 0 ? artist : undefined;
+  }
+  updateSongTitle(id, song.title, song.artist);
   broadcastState();
   res.json({ ok: true });
 });
@@ -361,7 +396,12 @@ io.on('connection', (socket) => {
     if (typeof set === 'number') song.score = set;
     else if (typeof delta === 'number') song.score += delta;
     dbUpdateScore(id, song.score);
-    broadcastState();
+    // Update score immediately in state but delay reordering/broadcast
+    // This allows users to click multiple times without the list jumping around
+    debouncedBroadcastState();
+    // Still emit immediate update to all clients for UI responsiveness
+    // but don't reorder the list yet
+    io.emit('score:updated', { id, score: song.score });
   });
 
   socket.on('timer:control', ({ action, durationSeconds }: { action: 'start' | 'stop' | 'reset'; durationSeconds?: number }) => {
@@ -400,4 +440,7 @@ setInterval(() => {
   if (state.timer.remainingSeconds !== before) broadcastState();
 }, 1000);
 
-
+// Periodic state broadcast to ensure all clients stay synced (especially when timer is stopped)
+setInterval(() => {
+  broadcastState();
+}, 5000);

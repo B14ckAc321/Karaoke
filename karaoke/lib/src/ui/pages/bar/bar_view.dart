@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:karaoke/src/navigation/routes.dart';
 import 'package:karaoke/src/repositories/song_repository.dart';
 import 'package:karaoke/src/services/backend_service.dart';
 import 'package:karaoke/src/services/theme_service.dart';
@@ -55,7 +53,6 @@ class _BarPageState extends State<BarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = backend.state;
     final bgColor = _parseColor(themeService.backgroundColor);
     final cardColor = _parseColor(themeService.cardColor);
     final textColor = _parseColor(themeService.textColor);
@@ -69,13 +66,6 @@ class _BarPageState extends State<BarPage> {
         title: Text('Bar', style: TextStyle(fontFamily: themeService.fontFamily)),
         backgroundColor: cardColor,
         foregroundColor: textColor,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => context.go(RouteNames.settings),
-            tooltip: 'Settings',
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -92,13 +82,28 @@ class _BarPageState extends State<BarPage> {
                   BoxShadow(color: secondaryColor.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1),
                 ],
               ),
-              child: state == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.separated(
-                      itemCount: state.songs.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
-                      itemBuilder: (context, i) {
-                        final s = state.songs[i];
+              child: Builder(
+                builder: (context) {
+                  final state = backend.state;
+                  final searchQuery = _titleCtrl.text.trim().toLowerCase();
+                  
+                  // Filter songs by search query if there's a search
+                  final displaySongs = searchQuery.isEmpty 
+                    ? (state?.songs ?? [])
+                    : (state?.songs.where(
+                        (s) => s.title.toLowerCase().contains(searchQuery) || 
+                               (s.artist != null && s.artist!.toLowerCase().contains(searchQuery))
+                      ).toList() ?? []);
+                  
+                  if (state == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  return ListView.separated(
+                    itemCount: displaySongs.length,
+                    separatorBuilder: (_, __) => Divider(height: 1, color: textColor.withValues(alpha: 0.3)),
+                    itemBuilder: (context, i) {
+                      final s = displaySongs[i];
                         return Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -155,11 +160,36 @@ class _BarPageState extends State<BarPage> {
                                 ),
                                 child: const Text('+10'),
                               ),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Remove Song'),
+                                      content: Text('Remove "${s.title}" from the list?'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove', style: TextStyle(color: Colors.red))),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) await repo.deleteSong(s.id);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                                icon: const Icon(Icons.delete, size: 20),
+                                label: const Text('Delete'),
+                              ),
                             ]),
                           ]),
                         );
                       },
-                    ),
+                    );
+                },
+              ),
             ),
           ),
         ]),
@@ -169,36 +199,43 @@ class _BarPageState extends State<BarPage> {
 
   Widget _addSongForm() {
     final cardColor = _parseColor(themeService.cardColor);
+    final textColor = _parseColor(themeService.textColor);
+    final buttonColor = _parseColor(themeService.buttonColor);
+    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        Expanded(
-          child: TextField(
-            controller: _titleCtrl,
-            style: TextStyle(color: _parseColor(themeService.textColor), fontFamily: themeService.fontFamily),
-            decoration: InputDecoration(
-              labelText: 'Song name',
-              labelStyle: TextStyle(color: _parseColor(themeService.textColor).withValues(alpha: 0.7)),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.textColor).withValues(alpha: 0.5))),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _parseColor(themeService.buttonColor))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Add Song', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor, fontFamily: themeService.fontFamily)),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _titleCtrl,
+              style: TextStyle(color: textColor, fontFamily: themeService.fontFamily),
+              decoration: InputDecoration(
+                labelText: 'Song name',
+                labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor.withValues(alpha: 0.5))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: buttonColor)),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        ElevatedButton(
-          onPressed: () async {
-            final title = _titleCtrl.text.trim();
-            if (title.isEmpty) return;
-            await repo.addSong(title: title);
-            _titleCtrl.clear();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _parseColor(themeService.buttonColor),
-            foregroundColor: _getTextColorForBackground(_parseColor(themeService.buttonColor)),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () async {
+              final title = _titleCtrl.text.trim();
+              if (title.isEmpty) return;
+              await repo.addSong(title: title);
+              _titleCtrl.clear();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: buttonColor,
+              foregroundColor: _getTextColorForBackground(buttonColor),
+            ),
+            child: const Text('Add'),
           ),
-          child: const Text('Add'),
-        ),
+        ]),
       ]),
     );
   }

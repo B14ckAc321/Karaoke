@@ -100,6 +100,10 @@ export function updateYoutubeUrl(id: string, url: string | null): void {
   db.prepare('UPDATE songs SET youtube_url = ? WHERE id = ?').run(url, id);
 }
 
+export function updateSongTitle(id: string, title: string, artist?: string | null): void {
+  db.prepare('UPDATE songs SET title = ?, artist = ? WHERE id = ?').run(title, artist ?? null, id);
+}
+
 export function getThemeSetting(key: string): string | null {
   const row = db.prepare('SELECT value FROM theme_settings WHERE key = ?').get(key) as { value: string } | undefined;
   return row?.value ?? null;

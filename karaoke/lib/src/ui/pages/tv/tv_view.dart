@@ -12,6 +12,8 @@ final class TvPage extends StatefulWidget {
 class _TvPageState extends State<TvPage> {
   final backend = BackendService.getInstance();
   final themeService = ThemeService.getInstance();
+  bool _showWinningDialog = false;
+  SongModel? _winningSong;
 
   @override
   void initState() {
@@ -27,7 +29,31 @@ class _TvPageState extends State<TvPage> {
     super.dispose();
   }
 
-  void _onUpdate() => setState(() {});
+  void _onUpdate() {
+    final state = backend.state;
+    final timer = state?.timer;
+    
+    // Check if timer just ended (remainingSeconds == 0)
+    if (timer != null && timer.remainingSeconds == 0 && state != null && state.songs.isNotEmpty) {
+      // Find winning song
+      final winningSong = state.songs.reduce((a, b) => a.score > b.score ? a : b);
+      if (!_showWinningDialog || _winningSong?.id != winningSong.id) {
+        setState(() {
+          _showWinningDialog = true;
+          _winningSong = winningSong;
+        });
+      }
+    } else if (timer != null && timer.remainingSeconds == timer.durationSeconds && timer.remainingSeconds > 0) {
+      // Timer was reset - hide dialog
+      if (_showWinningDialog) {
+        setState(() {
+          _showWinningDialog = false;
+          _winningSong = null;
+        });
+      }
+    }
+    setState(() {});
+  }
 
   Color _parseColor(String hex) {
     try {
@@ -60,10 +86,144 @@ class _TvPageState extends State<TvPage> {
         Padding(
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (themeService.logoImageUrl != null)
-              Image.network(themeService.logoImageUrl!, height: 120, fit: BoxFit.contain)
-            else
-              Text('Karaoke', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: themeService.fontFamily, shadows: [Shadow(color: accentColor, blurRadius: 10)])),
+            Builder(
+              builder: (context) {
+                // Left side texts
+                final customTextLeft1 = themeService.getThemeSetting('customTextLeft1') ?? '';
+                final customTextLeft2 = themeService.getThemeSetting('customTextLeft2') ?? '';
+                final customTextLeft3 = themeService.getThemeSetting('customTextLeft3') ?? '';
+                final customTextLeft1Size = double.tryParse(themeService.getThemeSetting('customTextLeft1Size') ?? '32') ?? 32;
+                final customTextLeft2Size = double.tryParse(themeService.getThemeSetting('customTextLeft2Size') ?? '24') ?? 24;
+                final customTextLeft3Size = double.tryParse(themeService.getThemeSetting('customTextLeft3Size') ?? '20') ?? 20;
+                final customTextLeft1Color = _parseColor(themeService.getThemeSetting('customTextLeft1Color') ?? '#FFD93D');
+                final customTextLeft2Color = _parseColor(themeService.getThemeSetting('customTextLeft2Color') ?? '#FFFFFF');
+                final customTextLeft3Color = _parseColor(themeService.getThemeSetting('customTextLeft3Color') ?? '#FFFFFF');
+                
+                // Right side texts
+                final customText1 = themeService.getThemeSetting('customText1') ?? '';
+                final customText2 = themeService.getThemeSetting('customText2') ?? '';
+                final customText3 = themeService.getThemeSetting('customText3') ?? '';
+                final customText1Size = double.tryParse(themeService.getThemeSetting('customText1Size') ?? '32') ?? 32;
+                final customText2Size = double.tryParse(themeService.getThemeSetting('customText2Size') ?? '24') ?? 24;
+                final customText3Size = double.tryParse(themeService.getThemeSetting('customText3Size') ?? '20') ?? 20;
+                final customText1Color = _parseColor(themeService.getThemeSetting('customText1Color') ?? '#FFD93D');
+                final customText2Color = _parseColor(themeService.getThemeSetting('customText2Color') ?? '#FFFFFF');
+                final customText3Color = _parseColor(themeService.getThemeSetting('customText3Color') ?? '#FFFFFF');
+                
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Left side
+                    if (customTextLeft1.isNotEmpty || customTextLeft2.isNotEmpty || customTextLeft3.isNotEmpty) ...[
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (customTextLeft1.isNotEmpty)
+                            Text(
+                              customTextLeft1,
+                              style: TextStyle(
+                                fontSize: customTextLeft1Size,
+                                fontWeight: FontWeight.bold,
+                                color: customTextLeft1Color,
+                                fontFamily: themeService.fontFamily,
+                                shadows: [
+                                  Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8),
+                                ],
+                              ),
+                            ),
+                          if (customTextLeft2.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              customTextLeft2,
+                              style: TextStyle(
+                                fontSize: customTextLeft2Size,
+                                fontWeight: FontWeight.w600,
+                                color: customTextLeft2Color,
+                                fontFamily: themeService.fontFamily,
+                                shadows: [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6)],
+                              ),
+                            ),
+                          ],
+                          if (customTextLeft3.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              customTextLeft3,
+                              style: TextStyle(
+                                fontSize: customTextLeft3Size,
+                                color: customTextLeft3Color,
+                                fontFamily: themeService.fontFamily,
+                                shadows: [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4)],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(width: 24),
+                    ],
+                    
+                    // Center logo/title
+                    if (themeService.logoImageUrl != null)
+                      Image.network(themeService.logoImageUrl!, height: 120, fit: BoxFit.contain)
+                    else
+                      Text('Karaoke', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: primaryColor, fontFamily: themeService.fontFamily, shadows: [Shadow(color: accentColor, blurRadius: 10)])),
+                    
+                    // Right side
+                    if (customText1.isNotEmpty || customText2.isNotEmpty || customText3.isNotEmpty) ...[
+                      const SizedBox(width: 24),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (customText1.isNotEmpty)
+                            Text(
+                              customText1,
+                              style: TextStyle(
+                                fontSize: customText1Size,
+                                fontWeight: FontWeight.bold,
+                                color: customText1Color,
+                                fontFamily: themeService.fontFamily,
+                                shadows: [
+                                  Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8),
+                                ],
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                          if (customText2.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              customText2,
+                              style: TextStyle(
+                                fontSize: customText2Size,
+                                fontWeight: FontWeight.w600,
+                                color: customText2Color,
+                                fontFamily: themeService.fontFamily,
+                                shadows: [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6)],
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                          ],
+                          if (customText3.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              customText3,
+                              style: TextStyle(
+                                fontSize: customText3Size,
+                                color: customText3Color,
+                                fontFamily: themeService.fontFamily,
+                                shadows: [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4)],
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
             const SizedBox(height: 16),
             Expanded(
               child: Container(
@@ -129,8 +289,105 @@ class _TvPageState extends State<TvPage> {
             ),
           ]),
         ),
+        // Winning song dialog overlay - on top of everything
+        if (_showWinningDialog && _winningSong != null)
+          _winningSongDialog(),
       ]),
     );
+  }
+
+  Widget _winningSongDialog() {
+    if (_winningSong == null) return const SizedBox.shrink();
+    
+    final bgColor = _parseColor(themeService.backgroundColor);
+    final accentColor = _parseColor(themeService.accentColor);
+    
+    return Container(
+      color: bgColor.withValues(alpha: 0.9),
+      child: Center(
+        child: Container(
+          width: 600,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: accentColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(color: accentColor.withValues(alpha: 0.5), blurRadius: 40, spreadRadius: 10),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.emoji_events, size: 80, color: _getTextColorForBackground(accentColor)),
+              const SizedBox(height: 24),
+              Text(
+                'WINNING SONG!',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: _getTextColorForBackground(accentColor),
+                  fontFamily: themeService.fontFamily,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                _winningSong!.title,
+                style: TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  color: _getTextColorForBackground(accentColor),
+                  fontFamily: themeService.fontFamily,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (_winningSong!.artist != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _winningSong!.artist!,
+                  style: TextStyle(
+                    fontSize: 28,
+                    color: _getTextColorForBackground(accentColor).withValues(alpha: 0.9),
+                    fontFamily: themeService.fontFamily,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _getTextColorForBackground(accentColor).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Score: ${_winningSong!.score}',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: _getTextColorForBackground(accentColor),
+                    fontFamily: themeService.fontFamily,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Reset timer to continue',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: _getTextColorForBackground(accentColor).withValues(alpha: 0.7),
+                  fontFamily: themeService.fontFamily,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getTextColorForBackground(Color backgroundColor) {
+    final luminance = backgroundColor.computeLuminance();
+    return luminance < 0.5 ? Colors.white : Colors.black;
   }
 }
 
